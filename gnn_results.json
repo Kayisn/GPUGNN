@@ -1,0 +1,1722 @@
+[
+    {
+        "graph_index": 0,
+        "graph_name": "Erdos-Renyi_50_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 1.0162410736083984,
+        "date": "2024-10-11 00:37:05",
+        "num_nodes": 50,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 1,
+        "graph_name": "Erdos-Renyi_50_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.6449997425079346,
+        "date": "2024-10-11 00:37:05",
+        "num_nodes": 50,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 2,
+        "graph_name": "Erdos-Renyi_50_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.6939976215362549,
+        "date": "2024-10-11 00:37:06",
+        "num_nodes": 50,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 3,
+        "graph_name": "Erdos-Renyi_50_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.6879284381866455,
+        "date": "2024-10-11 00:37:07",
+        "num_nodes": 50,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 4,
+        "graph_name": "Erdos-Renyi_50_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.6690044403076172,
+        "date": "2024-10-11 00:37:07",
+        "num_nodes": 50,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 5,
+        "graph_name": "Erdos-Renyi_50_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.6999986171722412,
+        "date": "2024-10-11 00:37:08",
+        "num_nodes": 50,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 6,
+        "graph_name": "Erdos-Renyi_100_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 0.7802543640136719,
+        "date": "2024-10-11 00:37:09",
+        "num_nodes": 100,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 7,
+        "graph_name": "Erdos-Renyi_100_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 1.3690316677093506,
+        "date": "2024-10-11 00:37:10",
+        "num_nodes": 100,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 8,
+        "graph_name": "Erdos-Renyi_100_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 1.6759841442108154,
+        "date": "2024-10-11 00:37:12",
+        "num_nodes": 100,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 9,
+        "graph_name": "Erdos-Renyi_100_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 2.1498732566833496,
+        "date": "2024-10-11 00:37:14",
+        "num_nodes": 100,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 10,
+        "graph_name": "Erdos-Renyi_100_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 2.109534740447998,
+        "date": "2024-10-11 00:37:16",
+        "num_nodes": 100,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 11,
+        "graph_name": "Erdos-Renyi_100_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 2.0788345336914062,
+        "date": "2024-10-11 00:37:18",
+        "num_nodes": 100,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 12,
+        "graph_name": "Erdos-Renyi_150_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 2.525803327560425,
+        "date": "2024-10-11 00:37:21",
+        "num_nodes": 150,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 13,
+        "graph_name": "Erdos-Renyi_150_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.7535367012023926,
+        "date": "2024-10-11 00:37:25",
+        "num_nodes": 150,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 14,
+        "graph_name": "Erdos-Renyi_150_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.459407329559326,
+        "date": "2024-10-11 00:37:28",
+        "num_nodes": 150,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 15,
+        "graph_name": "Erdos-Renyi_150_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.286797523498535,
+        "date": "2024-10-11 00:37:31",
+        "num_nodes": 150,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 16,
+        "graph_name": "Erdos-Renyi_150_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.220005989074707,
+        "date": "2024-10-11 00:37:35",
+        "num_nodes": 150,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 17,
+        "graph_name": "Erdos-Renyi_150_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.2569262981414795,
+        "date": "2024-10-11 00:37:38",
+        "num_nodes": 150,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 18,
+        "graph_name": "Erdos-Renyi_200_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.7006218433380127,
+        "date": "2024-10-11 00:37:41",
+        "num_nodes": 200,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 19,
+        "graph_name": "Erdos-Renyi_200_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.246387958526611,
+        "date": "2024-10-11 00:37:47",
+        "num_nodes": 200,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 20,
+        "graph_name": "Erdos-Renyi_200_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 6.137853145599365,
+        "date": "2024-10-11 00:37:53",
+        "num_nodes": 200,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 21,
+        "graph_name": "Erdos-Renyi_200_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.256786823272705,
+        "date": "2024-10-11 00:37:58",
+        "num_nodes": 200,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 22,
+        "graph_name": "Erdos-Renyi_200_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 4.7872889041900635,
+        "date": "2024-10-11 00:38:03",
+        "num_nodes": 200,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 23,
+        "graph_name": "Erdos-Renyi_200_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.0679919719696045,
+        "date": "2024-10-11 00:38:08",
+        "num_nodes": 200,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 24,
+        "graph_name": "Erdos-Renyi_250_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.635028600692749,
+        "date": "2024-10-11 00:38:14",
+        "num_nodes": 250,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 25,
+        "graph_name": "Erdos-Renyi_250_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.874611139297485,
+        "date": "2024-10-11 00:38:19",
+        "num_nodes": 250,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 26,
+        "graph_name": "Erdos-Renyi_250_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.441986560821533,
+        "date": "2024-10-11 00:38:25",
+        "num_nodes": 250,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 27,
+        "graph_name": "Erdos-Renyi_250_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 6.513221740722656,
+        "date": "2024-10-11 00:38:31",
+        "num_nodes": 250,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 28,
+        "graph_name": "Erdos-Renyi_250_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 6.268099069595337,
+        "date": "2024-10-11 00:38:38",
+        "num_nodes": 250,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 29,
+        "graph_name": "Erdos-Renyi_250_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 6.349844932556152,
+        "date": "2024-10-11 00:38:44",
+        "num_nodes": 250,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 30,
+        "graph_name": "Scale-Free_50_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 1.2180020809173584,
+        "date": "2024-10-11 00:38:45",
+        "num_nodes": 50,
+        "sparsity": null
+    },
+    {
+        "graph_index": 31,
+        "graph_name": "Scale-Free_100_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 2.357285261154175,
+        "date": "2024-10-11 00:38:48",
+        "num_nodes": 100,
+        "sparsity": null
+    },
+    {
+        "graph_index": 32,
+        "graph_name": "Scale-Free_150_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 3.5467610359191895,
+        "date": "2024-10-11 00:38:51",
+        "num_nodes": 150,
+        "sparsity": null
+    },
+    {
+        "graph_index": 33,
+        "graph_name": "Scale-Free_200_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 4.490605592727661,
+        "date": "2024-10-11 00:38:56",
+        "num_nodes": 200,
+        "sparsity": null
+    },
+    {
+        "graph_index": 34,
+        "graph_name": "Scale-Free_250_graph_1",
+        "graph_type": "synthetic",
+        "method": "cupy_sparse",
+        "time_seconds": 5.766005992889404,
+        "date": "2024-10-11 00:39:01",
+        "num_nodes": 250,
+        "sparsity": null
+    },
+    {
+        "graph_index": 35,
+        "graph_name": "Karate-Club",
+        "graph_type": "real-world",
+        "method": "cupy_sparse",
+        "time_seconds": 0.7314982414245605,
+        "date": "2024-10-11 00:39:02",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 36,
+        "graph_name": "Karate-Club-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 0.7500298023223877,
+        "date": "2024-10-11 00:39:03",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 37,
+        "graph_name": "Karate-Club-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 0.8909921646118164,
+        "date": "2024-10-11 00:39:04",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 38,
+        "graph_name": "Karate-Club-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 0.7538926601409912,
+        "date": "2024-10-11 00:39:05",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 39,
+        "graph_name": "Les-Miserables",
+        "graph_type": "real-world",
+        "method": "cupy_sparse",
+        "time_seconds": 1.8970863819122314,
+        "date": "2024-10-11 00:39:06",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 40,
+        "graph_name": "Les-Miserables-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 1.7059760093688965,
+        "date": "2024-10-11 00:39:08",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 41,
+        "graph_name": "Les-Miserables-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 1.9039087295532227,
+        "date": "2024-10-11 00:39:10",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 42,
+        "graph_name": "Les-Miserables-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "cupy_sparse",
+        "time_seconds": 2.0235278606414795,
+        "date": "2024-10-11 00:39:12",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 0,
+        "graph_name": "Erdos-Renyi_50_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0029997825622558594,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 1,
+        "graph_name": "Erdos-Renyi_50_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 2,
+        "graph_name": "Erdos-Renyi_50_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 3,
+        "graph_name": "Erdos-Renyi_50_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 4,
+        "graph_name": "Erdos-Renyi_50_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.00099945068359375,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 5,
+        "graph_name": "Erdos-Renyi_50_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 50,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 6,
+        "graph_name": "Erdos-Renyi_100_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0020017623901367188,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 7,
+        "graph_name": "Erdos-Renyi_100_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0019958019256591797,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 8,
+        "graph_name": "Erdos-Renyi_100_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.003000497817993164,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 9,
+        "graph_name": "Erdos-Renyi_100_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 10,
+        "graph_name": "Erdos-Renyi_100_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 11,
+        "graph_name": "Erdos-Renyi_100_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 100,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 12,
+        "graph_name": "Erdos-Renyi_150_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 13,
+        "graph_name": "Erdos-Renyi_150_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 14,
+        "graph_name": "Erdos-Renyi_150_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 15,
+        "graph_name": "Erdos-Renyi_150_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 16,
+        "graph_name": "Erdos-Renyi_150_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 17,
+        "graph_name": "Erdos-Renyi_150_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 150,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 18,
+        "graph_name": "Erdos-Renyi_200_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 200,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 19,
+        "graph_name": "Erdos-Renyi_200_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 200,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 20,
+        "graph_name": "Erdos-Renyi_200_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:17",
+        "num_nodes": 200,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 21,
+        "graph_name": "Erdos-Renyi_200_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 200,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 22,
+        "graph_name": "Erdos-Renyi_200_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 200,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 23,
+        "graph_name": "Erdos-Renyi_200_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 200,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 24,
+        "graph_name": "Erdos-Renyi_250_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 250,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 25,
+        "graph_name": "Erdos-Renyi_250_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 250,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 26,
+        "graph_name": "Erdos-Renyi_250_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 250,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 27,
+        "graph_name": "Erdos-Renyi_250_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:18",
+        "num_nodes": 250,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 28,
+        "graph_name": "Erdos-Renyi_250_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 250,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 29,
+        "graph_name": "Erdos-Renyi_250_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 250,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 30,
+        "graph_name": "Scale-Free_50_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 50,
+        "sparsity": null
+    },
+    {
+        "graph_index": 31,
+        "graph_name": "Scale-Free_100_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 100,
+        "sparsity": null
+    },
+    {
+        "graph_index": 32,
+        "graph_name": "Scale-Free_150_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 150,
+        "sparsity": null
+    },
+    {
+        "graph_index": 33,
+        "graph_name": "Scale-Free_200_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 200,
+        "sparsity": null
+    },
+    {
+        "graph_index": 34,
+        "graph_name": "Scale-Free_250_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0010008811950683594,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 250,
+        "sparsity": null
+    },
+    {
+        "graph_index": 35,
+        "graph_name": "Karate-Club",
+        "graph_type": "real-world",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0009996891021728516,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 36,
+        "graph_name": "Karate-Club-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 37,
+        "graph_name": "Karate-Club-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 38,
+        "graph_name": "Karate-Club-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 39,
+        "graph_name": "Les-Miserables",
+        "graph_type": "real-world",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 40,
+        "graph_name": "Les-Miserables-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 41,
+        "graph_name": "Les-Miserables-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 42,
+        "graph_name": "Les-Miserables-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_dense",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:19",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 0,
+        "graph_name": "Erdos-Renyi_50_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.007002592086791992,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 1,
+        "graph_name": "Erdos-Renyi_50_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0029985904693603516,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 2,
+        "graph_name": "Erdos-Renyi_50_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.002001523971557617,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 3,
+        "graph_name": "Erdos-Renyi_50_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.011000394821166992,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 4,
+        "graph_name": "Erdos-Renyi_50_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.001001119613647461,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 5,
+        "graph_name": "Erdos-Renyi_50_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.002003192901611328,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 6,
+        "graph_name": "Erdos-Renyi_100_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009975433349609375,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 7,
+        "graph_name": "Erdos-Renyi_100_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010020732879638672,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 8,
+        "graph_name": "Erdos-Renyi_100_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009982585906982422,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 9,
+        "graph_name": "Erdos-Renyi_100_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010001659393310547,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 10,
+        "graph_name": "Erdos-Renyi_100_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.032001495361328125,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 11,
+        "graph_name": "Erdos-Renyi_100_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.030001163482666016,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 12,
+        "graph_name": "Erdos-Renyi_150_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010008811950683594,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 13,
+        "graph_name": "Erdos-Renyi_150_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0019996166229248047,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 14,
+        "graph_name": "Erdos-Renyi_150_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.000997304916381836,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 15,
+        "graph_name": "Erdos-Renyi_150_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.002001047134399414,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 16,
+        "graph_name": "Erdos-Renyi_150_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0019989013671875,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 17,
+        "graph_name": "Erdos-Renyi_150_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.010000467300415039,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 18,
+        "graph_name": "Erdos-Renyi_200_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010004043579101562,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 19,
+        "graph_name": "Erdos-Renyi_200_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010025501251220703,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 20,
+        "graph_name": "Erdos-Renyi_200_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010006427764892578,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 21,
+        "graph_name": "Erdos-Renyi_200_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.002000570297241211,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 22,
+        "graph_name": "Erdos-Renyi_200_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.003001689910888672,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 23,
+        "graph_name": "Erdos-Renyi_200_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.003999233245849609,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 24,
+        "graph_name": "Erdos-Renyi_250_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009999275207519531,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 25,
+        "graph_name": "Erdos-Renyi_250_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010013580322265625,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 26,
+        "graph_name": "Erdos-Renyi_250_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.002001523971557617,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 27,
+        "graph_name": "Erdos-Renyi_250_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0020008087158203125,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 28,
+        "graph_name": "Erdos-Renyi_250_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0030002593994140625,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 29,
+        "graph_name": "Erdos-Renyi_250_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.004000425338745117,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 30,
+        "graph_name": "Scale-Free_50_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009987354278564453,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 50,
+        "sparsity": null
+    },
+    {
+        "graph_index": 31,
+        "graph_name": "Scale-Free_100_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009987354278564453,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 100,
+        "sparsity": null
+    },
+    {
+        "graph_index": 32,
+        "graph_name": "Scale-Free_150_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010020732879638672,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 150,
+        "sparsity": null
+    },
+    {
+        "graph_index": 33,
+        "graph_name": "Scale-Free_200_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010008811950683594,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 200,
+        "sparsity": null
+    },
+    {
+        "graph_index": 34,
+        "graph_name": "Scale-Free_250_graph_1",
+        "graph_type": "synthetic",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0020020008087158203,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 250,
+        "sparsity": null
+    },
+    {
+        "graph_index": 35,
+        "graph_name": "Karate-Club",
+        "graph_type": "real-world",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 36,
+        "graph_name": "Karate-Club-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 37,
+        "graph_name": "Karate-Club-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009968280792236328,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 38,
+        "graph_name": "Karate-Club-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0009987354278564453,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 39,
+        "graph_name": "Les-Miserables",
+        "graph_type": "real-world",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 40,
+        "graph_name": "Les-Miserables-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010008811950683594,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 41,
+        "graph_name": "Les-Miserables-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 42,
+        "graph_name": "Les-Miserables-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pytorch_geometric_gcn",
+        "time_seconds": 0.0010001659393310547,
+        "date": "2024-10-11 00:39:28",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 0,
+        "graph_name": "Erdos-Renyi_50_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.08200216293334961,
+        "date": "2024-10-11 00:41:04",
+        "num_nodes": 50,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 1,
+        "graph_name": "Erdos-Renyi_50_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.10800361633300781,
+        "date": "2024-10-11 00:41:04",
+        "num_nodes": 50,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 2,
+        "graph_name": "Erdos-Renyi_50_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.13103747367858887,
+        "date": "2024-10-11 00:41:04",
+        "num_nodes": 50,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 3,
+        "graph_name": "Erdos-Renyi_50_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.15003085136413574,
+        "date": "2024-10-11 00:41:04",
+        "num_nodes": 50,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 4,
+        "graph_name": "Erdos-Renyi_50_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.19097447395324707,
+        "date": "2024-10-11 00:41:04",
+        "num_nodes": 50,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 5,
+        "graph_name": "Erdos-Renyi_50_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.237962007522583,
+        "date": "2024-10-11 00:41:05",
+        "num_nodes": 50,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 6,
+        "graph_name": "Erdos-Renyi_100_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.1331629753112793,
+        "date": "2024-10-11 00:41:05",
+        "num_nodes": 100,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 7,
+        "graph_name": "Erdos-Renyi_100_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.24704718589782715,
+        "date": "2024-10-11 00:41:05",
+        "num_nodes": 100,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 8,
+        "graph_name": "Erdos-Renyi_100_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.27903199195861816,
+        "date": "2024-10-11 00:41:05",
+        "num_nodes": 100,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 9,
+        "graph_name": "Erdos-Renyi_100_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.34200572967529297,
+        "date": "2024-10-11 00:41:06",
+        "num_nodes": 100,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 10,
+        "graph_name": "Erdos-Renyi_100_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.5209980010986328,
+        "date": "2024-10-11 00:41:06",
+        "num_nodes": 100,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 11,
+        "graph_name": "Erdos-Renyi_100_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.703646183013916,
+        "date": "2024-10-11 00:41:07",
+        "num_nodes": 100,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 12,
+        "graph_name": "Erdos-Renyi_150_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.25099945068359375,
+        "date": "2024-10-11 00:41:07",
+        "num_nodes": 150,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 13,
+        "graph_name": "Erdos-Renyi_150_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.41300225257873535,
+        "date": "2024-10-11 00:41:07",
+        "num_nodes": 150,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 14,
+        "graph_name": "Erdos-Renyi_150_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.4699983596801758,
+        "date": "2024-10-11 00:41:08",
+        "num_nodes": 150,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 15,
+        "graph_name": "Erdos-Renyi_150_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.6000018119812012,
+        "date": "2024-10-11 00:41:09",
+        "num_nodes": 150,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 16,
+        "graph_name": "Erdos-Renyi_150_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.9710800647735596,
+        "date": "2024-10-11 00:41:10",
+        "num_nodes": 150,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 17,
+        "graph_name": "Erdos-Renyi_150_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 1.4195904731750488,
+        "date": "2024-10-11 00:41:11",
+        "num_nodes": 150,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 18,
+        "graph_name": "Erdos-Renyi_200_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.49028944969177246,
+        "date": "2024-10-11 00:41:11",
+        "num_nodes": 200,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 19,
+        "graph_name": "Erdos-Renyi_200_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.6210672855377197,
+        "date": "2024-10-11 00:41:12",
+        "num_nodes": 200,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 20,
+        "graph_name": "Erdos-Renyi_200_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.7450003623962402,
+        "date": "2024-10-11 00:41:13",
+        "num_nodes": 200,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 21,
+        "graph_name": "Erdos-Renyi_200_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 1.0500366687774658,
+        "date": "2024-10-11 00:41:14",
+        "num_nodes": 200,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 22,
+        "graph_name": "Erdos-Renyi_200_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 1.643998622894287,
+        "date": "2024-10-11 00:41:15",
+        "num_nodes": 200,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 23,
+        "graph_name": "Erdos-Renyi_200_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 2.372615337371826,
+        "date": "2024-10-11 00:41:18",
+        "num_nodes": 200,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 24,
+        "graph_name": "Erdos-Renyi_250_p_0.01_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.6334187984466553,
+        "date": "2024-10-11 00:41:18",
+        "num_nodes": 250,
+        "sparsity": 0.01
+    },
+    {
+        "graph_index": 25,
+        "graph_name": "Erdos-Renyi_250_p_0.05_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.8479974269866943,
+        "date": "2024-10-11 00:41:19",
+        "num_nodes": 250,
+        "sparsity": 0.05
+    },
+    {
+        "graph_index": 26,
+        "graph_name": "Erdos-Renyi_250_p_0.1_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 1.033879280090332,
+        "date": "2024-10-11 00:41:20",
+        "num_nodes": 250,
+        "sparsity": 0.1
+    },
+    {
+        "graph_index": 27,
+        "graph_name": "Erdos-Renyi_250_p_0.2_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 1.445002794265747,
+        "date": "2024-10-11 00:41:22",
+        "num_nodes": 250,
+        "sparsity": 0.2
+    },
+    {
+        "graph_index": 28,
+        "graph_name": "Erdos-Renyi_250_p_0.5_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 2.6413040161132812,
+        "date": "2024-10-11 00:41:24",
+        "num_nodes": 250,
+        "sparsity": 0.5
+    },
+    {
+        "graph_index": 29,
+        "graph_name": "Erdos-Renyi_250_p_0.8_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 3.588742733001709,
+        "date": "2024-10-11 00:41:28",
+        "num_nodes": 250,
+        "sparsity": 0.8
+    },
+    {
+        "graph_index": 30,
+        "graph_name": "Scale-Free_50_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.1674182415008545,
+        "date": "2024-10-11 00:41:28",
+        "num_nodes": 50,
+        "sparsity": null
+    },
+    {
+        "graph_index": 31,
+        "graph_name": "Scale-Free_100_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.3279991149902344,
+        "date": "2024-10-11 00:41:29",
+        "num_nodes": 100,
+        "sparsity": null
+    },
+    {
+        "graph_index": 32,
+        "graph_name": "Scale-Free_150_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.4890158176422119,
+        "date": "2024-10-11 00:41:29",
+        "num_nodes": 150,
+        "sparsity": null
+    },
+    {
+        "graph_index": 33,
+        "graph_name": "Scale-Free_200_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.6427252292633057,
+        "date": "2024-10-11 00:41:30",
+        "num_nodes": 200,
+        "sparsity": null
+    },
+    {
+        "graph_index": 34,
+        "graph_name": "Scale-Free_250_graph_1",
+        "graph_type": "synthetic",
+        "method": "pycuda_dense",
+        "time_seconds": 0.8000016212463379,
+        "date": "2024-10-11 00:41:30",
+        "num_nodes": 250,
+        "sparsity": null
+    },
+    {
+        "graph_index": 35,
+        "graph_name": "Karate-Club",
+        "graph_type": "real-world",
+        "method": "pycuda_dense",
+        "time_seconds": 0.10500216484069824,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 36,
+        "graph_name": "Karate-Club-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.10700178146362305,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 37,
+        "graph_name": "Karate-Club-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.10907125473022461,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 38,
+        "graph_name": "Karate-Club-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.11007094383239746,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 34,
+        "sparsity": null
+    },
+    {
+        "graph_index": 39,
+        "graph_name": "Les-Miserables",
+        "graph_type": "real-world",
+        "method": "pycuda_dense",
+        "time_seconds": 0.2390148639678955,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 40,
+        "graph_name": "Les-Miserables-Sample-1",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.24732518196105957,
+        "date": "2024-10-11 00:41:31",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 41,
+        "graph_name": "Les-Miserables-Sample-2",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.2270970344543457,
+        "date": "2024-10-11 00:41:32",
+        "num_nodes": 77,
+        "sparsity": null
+    },
+    {
+        "graph_index": 42,
+        "graph_name": "Les-Miserables-Sample-3",
+        "graph_type": "real-world-sample",
+        "method": "pycuda_dense",
+        "time_seconds": 0.2369999885559082,
+        "date": "2024-10-11 00:41:32",
+        "num_nodes": 77,
+        "sparsity": null
+    }
+]
