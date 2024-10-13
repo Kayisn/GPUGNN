@@ -71,7 +71,7 @@ for graph_info in graphs:
     end_time = time.time()
     stop_event.set()
     elapsed_time = end_time - start_time
-    peak_memory_usage = memory_thread.result()
+    peak_memory_usage = memory_thread.result() / 1024**2
 
     # Convert aggregated matrix back to host for storing results if needed
     results.append(
@@ -81,7 +81,7 @@ for graph_info in graphs:
             "graph_type": type,
             "method": "cupy_sparse",
             "time_seconds": elapsed_time,
-            "memory_peak_usage_mb": peak_memory_usage / 1024**2,
+            "memory_peak_mb": peak_memory_usage,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
