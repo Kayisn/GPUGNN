@@ -17,8 +17,7 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 def memory_monitor(stop_event, interval=0.1):
     peak_memory_usage = 0
     while not stop_event.is_set():
-        free_mem, total_mem = cp.get_default_memory_pool().get_memory_info()
-        used_mem = total_mem - free_mem
+        used_mem = cp.get_default_memory_pool().used_bytes()
         peak_memory_usage = max(peak_memory_usage, used_mem)
         time.sleep(interval)
     return peak_memory_usage
