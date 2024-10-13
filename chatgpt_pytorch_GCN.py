@@ -71,7 +71,7 @@ for graph_info in graphs:
             "graph_type": type,
             "method": "pytorch_geometric_gcn",
             "time_seconds": elapsed_time,
-            "memory_allocated_mb": memory_allocated,
+            "memory_peak_mb": memory_allocated,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,

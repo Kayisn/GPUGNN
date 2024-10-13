@@ -1,6 +1,8 @@
 import json
 import pickle
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import cupy as cp
 import numpy as np
@@ -9,6 +11,17 @@ import scipy.sparse as sp
 # Load graphs
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)
+
+
+# Memory tracking thread function
+def memory_monitor(stop_event, interval=0.1):
+    peak_memory_usage = 0
+    while not stop_event.is_set():
+        free_mem, total_mem = cp.get_default_memory_pool().get_memory_info()
+        used_mem = total_mem - free_mem
+        peak_memory_usage = max(peak_memory_usage, used_mem)
+        time.sleep(interval)
+    return peak_memory_usage
 
 
 # Define the cuSPARSE-based multiplication method
@@ -31,6 +44,10 @@ for graph_info in graphs:
     sparsity = graph_info["sparsity"]
 
     print(f"Testing graph {index}")
+
+    stop_event = threading.Event()
+    executor = ThreadPoolExecutor(max_workers=1)
+    memory_thread = executor.submit(memory_monitor, stop_event)
     start_time = time.time()
 
     # Convert feature matrix to CuPy for GPU operations
@@ -53,8 +70,9 @@ for graph_info in graphs:
             aggregated_feature_matrix_gpu[node, :] = aggregated_value
 
     end_time = time.time()
+    stop_event.set()
     elapsed_time = end_time - start_time
-    memory_usage = cp.get_default_memory_pool().used_bytes() / 1024**2
+    peak_memory_usage = memory_thread.result()
 
     # Convert aggregated matrix back to host for storing results if needed
     results.append(
@@ -64,7 +82,7 @@ for graph_info in graphs:
             "graph_type": type,
             "method": "cupy_sparse",
             "time_seconds": elapsed_time,
-            "memory_allocated_mb": memory_usage,
+            "memory_peak_usage_mb": peak_memory_usage / 1024**2,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
