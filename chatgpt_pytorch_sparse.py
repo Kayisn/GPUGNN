@@ -48,12 +48,13 @@ for graph_info in graphs:
     model = DenseGNNLayer(in_features=10, out_features=10)
 
     # Perform forward pass and measure time
+    memory_idle = torch.cuda.memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     start_time = time.time()
     output = model(feature_matrix, adjacency_matrix)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    memory_allocated = torch.cuda.max_memory_allocated() / 1024**2
+    memory_allocated = (torch.cuda.max_memory_allocated() - memory_idle) / 1024**2
 
     results.append(
         {

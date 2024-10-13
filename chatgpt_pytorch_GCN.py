@@ -57,12 +57,13 @@ for graph_info in graphs:
     model = GCN(in_channels=10, out_channels=10)
 
     # Perform forward pass and measure time
+    memory_idle = torch.cuda.memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     start_time = time.time()
     model(data)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    memory_allocated = torch.cuda.max_memory_allocated() / 1024**2
+    memory_allocated = (torch.cuda.max_memory_allocated() - memory_idle) / 1024**2
 
     results.append(
         {
