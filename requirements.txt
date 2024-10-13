@@ -1,0 +1,5 @@
+numpy
+SciPy
+pycuda
+torch
+torch-geometric
