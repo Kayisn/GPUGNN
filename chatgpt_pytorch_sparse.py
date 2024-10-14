@@ -42,13 +42,13 @@ for graph_info in graphs:
     feature_matrix = feature_matrix.to_sparse()
 
     # Perform forward pass and measure time
-    memory_idle = torch.cuda.memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
+    memory_idle = torch.cuda.memory_allocated(device)
+    torch.cuda.reset_peak_memory_stats(device)
     start_time = time.time()
     output = torch.sparse.mm(adjacency_matrix, feature_matrix)
     end_time = time.time()
     elapsed_time = end_time - start_time
-    memory_allocated = (torch.cuda.max_memory_allocated() - memory_idle) / 1024**2
+    memory_allocated = (torch.cuda.max_memory_allocated(device) - memory_idle) / 1024**2
 
     results.append(
         {

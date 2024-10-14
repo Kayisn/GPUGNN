@@ -11,7 +11,7 @@ scripts_pycuda = [
     'chatgpt_pycuda_sparse.py',
     'chatgpt_pycuda_dense.py',
 ]
-#scripts = scripts_pycuda
+scripts = scripts_pycuda
 
 # Run each script sequentially
 for script in scripts:

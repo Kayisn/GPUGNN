@@ -38,7 +38,7 @@ for graph_info in graphs:
             adjacency_matrix[node, neighbor] = 1.0
 
     # Perform forward pass and measure time
-    memory_idle = torch.cuda.memory_allocated()
+    memory_idle = torch.cuda.memory_allocated(device)
     torch.cuda.reset_peak_memory_stats(device)
     start_time = time.time()
     output = torch.matmul(adjacency_matrix, feature_matrix)

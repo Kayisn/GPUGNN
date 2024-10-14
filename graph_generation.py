@@ -110,7 +110,7 @@ def generate_feature_matrices(graphs, num_features=10):
 
 # Parameters for graph generation
 num_graphs = 1
-num_nodes_list = [500, 1000, 1500, 2000]
+num_nodes_list = [50, 100, 200]
 sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8]
 number_of_features = 1
 
