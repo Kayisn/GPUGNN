@@ -47,7 +47,7 @@ for graph_info in graphs:
     stop_event = threading.Event()
     executor = ThreadPoolExecutor(max_workers=1)
     memory_thread = executor.submit(memory_monitor, stop_event)
-    start_time = time.time()
+    
 
     # Convert feature matrix to CuPy for GPU operations
     feature_matrix_gpu = cp.sparse.csr_matrix(feature_matrix)
@@ -55,19 +55,18 @@ for graph_info in graphs:
     # Initialize an empty aggregated feature matrix
     aggregated_feature_matrix_gpu = feature_matrix_gpu.copy()
 
-    # Perform aggregation using neighbors
-    for node in graph.nodes:
-        neighbors = list(graph.neighbors(node))
-        if len(neighbors) > 0:
-            # Extract neighbors' features as a single sparse matrix
-            neighbor_features_gpu = feature_matrix_gpu[neighbors, :]
-            # Aggregate neighbor features using cuSPARSE multiplication
-            aggregated_value = sparse_matrix_multiply_cusparse_gpu(
-                neighbor_features_gpu.T, cp.ones((len(neighbors), 1), dtype=cp.float32)
-            ).T
-            # Update the aggregated feature matrix for the current node
-            aggregated_feature_matrix_gpu[node, :] = aggregated_value
+    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
 
+    # Prepare adjacency matrix
+    for node in graph.nodes:
+        for neighbor in graph.neighbors(node):
+            adjacency_matrix[node, neighbor] = 1.0
+
+    adjacency_matrix = adjacency_matrix.tocsr()
+
+    start_time = time.time()
+    # Perform aggregation using neighbors
+    result = sparse_matrix_multiply_cusparse_gpu(adjacency_matrix, feature_matrix_gpu)
     end_time = time.time()
     stop_event.set()
     elapsed_time = end_time - start_time

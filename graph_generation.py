@@ -89,6 +89,7 @@ def generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels):
     real_world_graphs = add_real_world_graphs(num_samples=3, sample_size=1000)
     return synthetic_graphs + real_world_graphs
 
+
 # Generate feature matrices for each graph
 def generate_feature_matrices(graphs, num_features=10):
     """
@@ -99,7 +100,7 @@ def generate_feature_matrices(graphs, num_features=10):
     num_features (int): Number of features per node.
 
     Returns:
-    list: List of graphs with feature matrices added.
+    list: List of graphs with feature matrices and brute force multiplication results added.
     """
     for graph_data in graphs:
         num_nodes = graph_data['graph'].number_of_nodes()
@@ -109,14 +110,15 @@ def generate_feature_matrices(graphs, num_features=10):
 
 # Parameters for graph generation
 num_graphs = 1
-num_nodes_list = [50, 100, 150, 200, 250]
+num_nodes_list = [500, 1000, 1500, 2000]
 sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8]
+number_of_features = 1
 
 # Generate all graphs
 graphs = generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels)
 
 # Generate feature matrices for each graph
-graphs = generate_feature_matrices(graphs)
+graphs = generate_feature_matrices(graphs, number_of_features)
 
 # Save graphs to file
 def save_graphs(graphs, filename):
