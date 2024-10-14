@@ -44,6 +44,7 @@ for graph_info in graphs:
 
     print(f"Testing graph {index}")
 
+    memory_idle = cp.get_default_memory_pool().used_bytes()
     stop_event = threading.Event()
     executor = ThreadPoolExecutor(max_workers=1)
     memory_thread = executor.submit(memory_monitor, stop_event)
@@ -70,7 +71,7 @@ for graph_info in graphs:
     end_time = time.time()
     stop_event.set()
     elapsed_time = end_time - start_time
-    peak_memory_usage = memory_thread.result() / 1024**2
+    peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
 
     # Convert aggregated matrix back to host for storing results if needed
     results.append(

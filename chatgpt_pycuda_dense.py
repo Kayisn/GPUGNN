@@ -97,6 +97,8 @@ for graph_info in graphs:
     # Perform multiplication (example using BFS and feature matrix)
     aggregated_feature_matrix = feature_matrix.copy()
 
+    free_mem, total_mem = cuda.mem_get_info()
+    memory_idle = total_mem - free_mem
     stop_event = threading.Event()
     executor = ThreadPoolExecutor(max_workers=1)
     context = cuda.Device(0).make_context()
@@ -125,8 +127,7 @@ for graph_info in graphs:
     
     stop_event.set()
     elapsed_time = end_time - start_time
-    peak_memory_usage = memory_thread.result() / 1024**2
-
+    peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
     context.pop()
     results.append(
         {
