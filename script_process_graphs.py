@@ -4,11 +4,12 @@ import subprocess
 scripts = [
     'chatgpt_cupy_sparse.py',
     'chatgpt_pytorch_sparse.py',
-    'chatgpt_pytorch_GCN.py'
+    'chatgpt_pytorch_dense.py'
 ]
 # I separate them because I have different environments for pycuda and comment out the other scripts to run only the pycuda script
 scripts_pycuda = [
-    'chatgpt_pycuda.py'
+    'chatgpt_pycuda_sparse.py',
+    'chatgpt_pycuda_dense.py',
 ]
 scripts = scripts_pycuda
 

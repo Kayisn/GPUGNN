@@ -1,96 +1,69 @@
 import json
 import pickle
 import time
-import threading
-from concurrent.futures import ThreadPoolExecutor
 
-import cupy as cp
 import numpy as np
 import scipy.sparse as sp
+import torch
+import torch.nn as nn
 
 # Load graphs
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)
 
-
-# Memory tracking thread function
-def memory_monitor(stop_event, interval=0.1):
-    peak_memory_usage = 0
-    while not stop_event.is_set():
-        used_mem = cp.get_default_memory_pool().used_bytes()
-        peak_memory_usage = max(peak_memory_usage, used_mem)
-        time.sleep(interval)
-    return peak_memory_usage
-
-
-# Define the cuSPARSE-based multiplication method
-def sparse_matrix_multiply_cusparse_gpu(A, B):
-    A_csr = cp.sparse.csr_matrix(A)
-    B_csr = cp.sparse.csr_matrix(B)
-    C_csr = A_csr.dot(B_csr)
-    return C_csr
-
+# Set the CUDA device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
 
 # Run tests and collect results
 results = []
 for graph_info in graphs:
     index = graph_info["index"]
     name = graph_info["name"]
-    type = graph_info["type"]
+    graph_type = graph_info["type"]
     graph = graph_info["graph"]
-    feature_matrix = graph_info["feature_matrix"]
     num_nodes = graph_info["num_nodes"]
     sparsity = graph_info["sparsity"]
+    features = graph_info["feature_matrix"]
 
+    feature_matrix = torch.tensor(
+        graph_info["feature_matrix"].toarray(), dtype=torch.float32
+    ).to(device)
     print(f"Testing graph {index}")
-
-    memory_idle = cp.get_default_memory_pool().used_bytes()
-    stop_event = threading.Event()
-    executor = ThreadPoolExecutor(max_workers=1)
-    memory_thread = executor.submit(memory_monitor, stop_event)
-    
-
-    # Convert feature matrix to CuPy for GPU operations
-    feature_matrix_gpu = cp.sparse.csr_matrix(feature_matrix)
-
-    # Initialize an empty aggregated feature matrix
-    aggregated_feature_matrix_gpu = feature_matrix_gpu.copy()
-
-    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-
     # Prepare adjacency matrix
+    num_nodes = feature_matrix.shape[0]
+    adjacency_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32).to(device)
     for node in graph.nodes:
         for neighbor in graph.neighbors(node):
             adjacency_matrix[node, neighbor] = 1.0
 
-    adjacency_matrix = adjacency_matrix.tocsr()
-
+    # Perform forward pass and measure time
+    memory_idle = torch.cuda.memory_allocated(device)
+    torch.cuda.reset_peak_memory_stats(device)
     start_time = time.time()
-    # Perform aggregation using neighbors
-    result = sparse_matrix_multiply_cusparse_gpu(adjacency_matrix, feature_matrix_gpu)
+    output = torch.matmul(adjacency_matrix, feature_matrix)
     end_time = time.time()
-    stop_event.set()
     elapsed_time = end_time - start_time
-    peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
+    memory_allocated = (torch.cuda.max_memory_allocated(device) - memory_idle) / 1024**2
 
-    # Convert aggregated matrix back to host for storing results if needed
     results.append(
         {
             "graph_index": index,
             "graph_name": name,
-            "graph_type": type,
-            "method": "cupy_sparse",
+            "graph_type": graph_type,
+            "method": "pytorch_dense",
             "time_seconds": elapsed_time,
-            "memory_peak_mb": peak_memory_usage,
+            "memory_peak_mb": memory_allocated,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
         }
     )
 
-# Load existing results or create a new one
+
 import os
 
+# Load existing results or create a new one
 if os.path.exists("gnn_results.json"):
     with open("gnn_results.json", "r") as f:
         try:
