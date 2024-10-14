@@ -6,7 +6,7 @@ import json
 import scipy.sparse as sp
 
 # Generate synthetic graphs (Erdős-Rényi and Scale-Free)
-def generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels):
+def generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels, gen_type='both'):
     """
     Generate a list of synthetic graphs with varying sizes and sparsity levels.
     
@@ -19,21 +19,23 @@ def generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels):
     list: List of NetworkX graph objects.
     """
     graphs = []
-    # Generate Erdős-Rényi graphs
-    for num_nodes in num_nodes_list:
-        for p in sparsity_levels:
+    if gen_type == 'both' or gen_type == 'erdos-renyi':
+        # Generate Erdős-Rényi graphs
+        for num_nodes in num_nodes_list:
+            for p in sparsity_levels:
+                for i in range(num_graphs):
+                    G_er = nx.gnp_random_graph(num_nodes, p, directed=False)
+                    node_mapping = {node: idx for idx, node in enumerate(G_er.nodes())}
+                    G_er = nx.relabel_nodes(G_er, node_mapping)
+                    graphs.append({'graph': G_er, 'name': f'Erdos-Renyi_{num_nodes}_p_{p}_graph_{i+1}', 'type': 'synthetic', 'num_nodes': G_er.number_of_nodes(), 'sparsity': p})
+    if gen_type == 'both' or gen_type == 'scale-free':    
+        # Generate Scale-Free graphs
+        for num_nodes in num_nodes_list:
             for i in range(num_graphs):
-                G_er = nx.gnp_random_graph(num_nodes, p, directed=False)
-                node_mapping = {node: idx for idx, node in enumerate(G_er.nodes())}
-                G_er = nx.relabel_nodes(G_er, node_mapping)
-                graphs.append({'graph': G_er, 'name': f'Erdos-Renyi_{num_nodes}_p_{p}_graph_{i+1}', 'type': 'synthetic', 'num_nodes': G_er.number_of_nodes(), 'sparsity': p})
-    # Generate Scale-Free graphs
-    for num_nodes in num_nodes_list:
-        for i in range(num_graphs):
-            G_sf = nx.barabasi_albert_graph(num_nodes, m=5)
-            node_mapping = {node: idx for idx, node in enumerate(G_sf.nodes())}
-            G_sf = nx.relabel_nodes(G_sf, node_mapping)
-            graphs.append({'graph': G_sf, 'name': f'Scale-Free_{num_nodes}_graph_{i+1}', 'type': 'synthetic', 'num_nodes': G_sf.number_of_nodes(), 'sparsity': None})
+                G_sf = nx.barabasi_albert_graph(num_nodes, m=5)
+                node_mapping = {node: idx for idx, node in enumerate(G_sf.nodes())}
+                G_sf = nx.relabel_nodes(G_sf, node_mapping)
+                graphs.append({'graph': G_sf, 'name': f'Scale-Free_{num_nodes}_graph_{i+1}', 'type': 'synthetic', 'num_nodes': G_sf.number_of_nodes(), 'sparsity': None})
     return graphs
 
 # Function to add other real-world graphs available in NetworkX
@@ -73,7 +75,7 @@ def add_real_world_graphs(num_samples=3, sample_size=200):
     return graphs
 
 # Generate and collect all graphs
-def generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels):
+def generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels, gen_type='both'):
     """
     Generate and download graphs for testing.
     
@@ -85,7 +87,7 @@ def generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels):
     Returns:
     list: List of NetworkX graph objects.
     """
-    synthetic_graphs = generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels)
+    synthetic_graphs = generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels, gen_type=gen_type)
     #real_world_graphs = add_real_world_graphs(num_samples=3, sample_size=1000)
     #return synthetic_graphs + real_world_graphs
     return synthetic_graphs
@@ -127,14 +129,26 @@ def generate_feature_matrices(graphs, num_features=10):
         graph_data['feature_matrix'] = feature_matrix
     return graphs
 
+
 # Parameters for graph generation
+
+filename = 'gnn_test_graphs_with_features.pkl'
 num_graphs = 1
 num_nodes_list = [1000, 2000, 3000]
 sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8]
 number_of_features = 10
+g_type = 'both'
+"""
+filename = 'gnn_test_graph_with_features.pkl'
+num_graphs = 1
+num_nodes_list = [100000]
+sparsity_levels = [0.05]
+number_of_features = 10
+g_type = 'scale-free'
+"""
 
 # Generate all graphs
-graphs = generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels)
+graphs = generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels, gen_type=g_type)
 
 # Generate feature matrices for each graph
 graphs = generate_feature_matrices(graphs, number_of_features)
@@ -152,7 +166,7 @@ def save_graphs(graphs, filename):
         pickle.dump([{'index': index, 'name': g['name'], 'type': g['type'], 'graph': g['graph'], 'feature_matrix': g['feature_matrix'], 'num_nodes': g['num_nodes'], 'sparsity': g['sparsity']} for index, g in enumerate(graphs)], f)
 
 # Save the graphs
-save_graphs(graphs, 'gnn_test_graphs_with_features.pkl')
+save_graphs(graphs, filename)
 
 # Print confirmation
 print(f"Generated and saved {len(graphs)} graphs including synthetic, real-world, and sampled subgraphs with metadata and feature matrices.")
