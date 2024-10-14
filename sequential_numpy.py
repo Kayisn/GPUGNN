@@ -1,19 +1,22 @@
 import json
 import pickle
+import threading
 import time
 
 import numpy as np
 import scipy.sparse as sp
-import torch
-import torch.nn as nn
 
 # Load graphs
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)
 
-# Set the CUDA device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Using device:", device)
+
+# Define the PyCUDA-based multiplication method
+def matrix_multiply(A, B):
+
+    return A @ B
+
+
 
 # Run tests and collect results
 results = []
@@ -22,45 +25,37 @@ for graph_info in graphs:
     name = graph_info["name"]
     graph_type = graph_info["type"]
     graph = graph_info["graph"]
+    feature_matrix = graph_info["feature_matrix"]
     num_nodes = graph_info["num_nodes"]
     sparsity = graph_info["sparsity"]
-    features = graph_info["feature_matrix"]
-
-    feature_matrix = torch.tensor(
-        graph_info["feature_matrix"].toarray(), dtype=torch.float32
-    ).to(device)
     print(f"Testing graph {index}")
-    # Prepare adjacency matrix
-    num_nodes = feature_matrix.shape[0]
-    adjacency_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32).to(device)
+
+
+    adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=np.float32)
     for node in graph.nodes:
         for neighbor in graph.neighbors(node):
             adjacency_matrix[node, neighbor] = 1.0
 
-    # Perform forward pass and measure time
-    memory_idle = torch.cuda.memory_allocated(device)
-    torch.cuda.reset_peak_memory_stats(device)
-    torch.cuda.synchronize()
-    start_time = time.time()
-    output = torch.matmul(adjacency_matrix, feature_matrix)
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    memory_allocated = (torch.cuda.max_memory_allocated(device) - memory_idle) / 1024**2
 
+
+    start_time = time.time()
+    result = matrix_multiply(adjacency_matrix, feature_matrix)
+    end_time = time.time()
+    
+    elapsed_time = end_time - start_time
+ 
     results.append(
         {
             "graph_index": index,
             "graph_name": name,
             "graph_type": graph_type,
-            "method": "pytorch_dense",
+            "method": "sequential_numpy",
             "time_seconds": elapsed_time,
-            "memory_peak_mb": memory_allocated,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
         }
     )
-
 
 import os
 

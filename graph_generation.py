@@ -86,8 +86,27 @@ def generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels):
     list: List of NetworkX graph objects.
     """
     synthetic_graphs = generate_synthetic_graphs(num_graphs, num_nodes_list, sparsity_levels)
-    real_world_graphs = add_real_world_graphs(num_samples=3, sample_size=1000)
-    return synthetic_graphs + real_world_graphs
+    #real_world_graphs = add_real_world_graphs(num_samples=3, sample_size=1000)
+    #return synthetic_graphs + real_world_graphs
+    return synthetic_graphs
+
+def create_solution_matrix(graph, feature_matrix):
+    """
+    Create a solution matrix for a graph by performing a brute-force matrix multiplication.
+
+    Parameters:
+    graph (nx.Graph): The graph for which to create the solution matrix.
+    feature_matrix (sp.csr_matrix): The feature matrix for the graph.
+
+    Returns:
+    sp.csr_matrix: The solution matrix for the graph.
+    """
+    num_nodes = graph.number_of_nodes()
+    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
+    for node in graph.nodes:
+        for neighbor in graph.neighbors(node):
+            adjacency_matrix[node, neighbor] = 1.0
+    return adjacency_matrix.dot(feature_matrix)
 
 
 # Generate feature matrices for each graph
@@ -110,9 +129,9 @@ def generate_feature_matrices(graphs, num_features=10):
 
 # Parameters for graph generation
 num_graphs = 1
-num_nodes_list = [50, 100, 200]
+num_nodes_list = [1000, 2000, 3000]
 sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8]
-number_of_features = 1
+number_of_features = 10
 
 # Generate all graphs
 graphs = generate_all_graphs(num_graphs, num_nodes_list, sparsity_levels)
