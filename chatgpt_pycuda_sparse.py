@@ -28,7 +28,7 @@ def memory_monitor(stop_event, context):
     return peak_memory_usage
 
 # Define the PyCUDA-based sparse matrix multiplication method
-def sparse_matrix_multiply_pycuda(A, B):
+def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     # Ensure A and B are in CSR format
     A_csr = A.tocsr().astype(np.float32)
     B_csr = B.tocsr().astype(np.float32)
@@ -94,36 +94,71 @@ def sparse_matrix_multiply_pycuda(A, B):
         1,
     )
 
-    # Launch the kernel
-    sparse_matmul(
-        A_data_gpu,
-        A_indices_gpu,
-        A_indptr_gpu,
-        B_data_gpu,
-        B_indices_gpu,
-        B_indptr_gpu,
-        C_gpu,
-        np.int32(A_csr.shape[0]),
-        np.int32(A_csr.shape[1]),
-        np.int32(B_csr.shape[1]),
-        block=block_size,
-        grid=grid_size,
-    )
+    try:
+        # Warmup runs
+        for _ in range(num_warmup):
+            sparse_matmul(
+                A_data_gpu, A_indices_gpu, A_indptr_gpu,
+                B_data_gpu, B_indices_gpu, B_indptr_gpu,
+                C_gpu, np.int32(A.shape[0]), np.int32(A.shape[1]),
+                np.int32(B.shape[1]),
+                block=block_size,
+                grid=grid_size
+            )
+            cuda.Context.synchronize()
 
-    # Copy the result back to host
-    C_dense = np.empty((A_csr.shape[0], B_csr.shape[1]), dtype=np.float32)
-    cuda.memcpy_dtoh(C_dense, C_gpu)
+        # Actual test runs with timing
+        times = []
+        for _ in range(num_test_runs):
+            start = cuda.Event()
+            end = cuda.Event()
+            
+            start.record()
+            sparse_matmul(
+                A_data_gpu, A_indices_gpu, A_indptr_gpu,
+                B_data_gpu, B_indices_gpu, B_indptr_gpu,
+                C_gpu, np.int32(A.shape[0]), np.int32(A.shape[1]),
+                np.int32(B.shape[1]),
+                block=block_size,
+                grid=grid_size
+            )
+            end.record()
+            end.synchronize()
+            
+            elapsed_time = start.time_till(end)
+            times.append(elapsed_time)
 
-    # Free GPU memory
-    A_data_gpu.free()
-    A_indices_gpu.free()
-    A_indptr_gpu.free()
-    B_data_gpu.free()
-    B_indices_gpu.free()
-    B_indptr_gpu.free()
-    C_gpu.free()
+        mean_time = np.mean(times)
+        std_time = np.std(times)
+        
+        # Copy the result back to host
+        C_dense = np.empty((A_csr.shape[0], B_csr.shape[1]), dtype=np.float32)
+        cuda.memcpy_dtoh(C_dense, C_gpu)
 
-    return C_dense
+        # Free GPU memory
+        A_data_gpu.free()
+        A_indices_gpu.free()
+        A_indptr_gpu.free()
+        B_data_gpu.free()
+        B_indices_gpu.free()
+        B_indptr_gpu.free()
+        C_gpu.free()
+
+        return C_dense, mean_time, std_time
+
+    except:
+        # Cleanup on error
+        try:
+            A_data_gpu.free()
+            A_indices_gpu.free()
+            A_indptr_gpu.free()
+            B_data_gpu.free()
+            B_indices_gpu.free()
+            B_indptr_gpu.free()
+            C_gpu.free()
+        except:
+            pass
+        raise
 
 
 # Run tests and collect results
@@ -159,27 +194,43 @@ for graph_info in graphs:
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
 
     time.sleep(0.5)  # Wait for memory thread to start
-    start_time = time.time()
-    sparse_matrix_multiply_pycuda(adjacency_matrix, feature_matrix)
-    end_time = time.time()
-    stop_event.set()
-    elapsed_time = end_time - start_time
-    peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
 
-    context.pop()
-    results.append(
-        {
+    try:
+        # Execute computation
+        result, mean_time, std_time = sparse_matrix_multiply_pycuda(
+            adjacency_matrix, 
+            feature_matrix,
+            num_warmup=2,
+            num_test_runs=5
+        )
+        
+        # Stop memory tracking and get results
+        stop_event.set()
+        peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
+
+        results.append({
             "graph_index": index,
             "graph_name": name,
             "graph_type": graph_type,
-            "method": "pycuda_sparse",
-            "time_seconds": elapsed_time,
+            "method": "pycuda_sparse_gpt",
+            "time_seconds": mean_time / 1000.0,  # Convert ms to seconds
+            "time_std": std_time / 1000.0,  # Convert ms to seconds
             "memory_peak_mb": peak_memory_usage,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
-        }
-    )
+        })
+
+    except cuda.LaunchError as e:
+        print(f"CUDA launch failed: {e}")
+        stop_event.set()
+        continue
+    except Exception as e:
+        print(f"Error processing graph {name}: {e}")
+        stop_event.set()
+        continue
+    finally:
+        context.pop()
 
 import os
 

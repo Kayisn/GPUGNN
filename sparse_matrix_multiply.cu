@@ -6,6 +6,8 @@
 #include <chrono>
 #include <vector>
 
+// CTRL+SHIFT+P -> run task -> activate environment and compile
+
 namespace py = pybind11;
 
 __global__ void sparse_matmul(float *A_data, int *A_indices, int *A_indptr, float *B_data, int *B_indices, int *B_indptr, float *C, int num_rows, int num_cols, int num_cols_B) {
