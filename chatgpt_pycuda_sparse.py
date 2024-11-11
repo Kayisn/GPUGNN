@@ -10,6 +10,8 @@ import pycuda.driver as cuda
 import scipy.sparse as sp
 from pycuda.compiler import SourceModule
 
+from verification import verify_result
+
 # Load graphs
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)
@@ -203,6 +205,8 @@ for graph_info in graphs:
             num_warmup=2,
             num_test_runs=5
         )
+
+        is_correct = verify_result(result, adjacency_matrix, feature_matrix)
         
         # Stop memory tracking and get results
         stop_event.set()
@@ -219,6 +223,7 @@ for graph_info in graphs:
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,
+            "is_correct": is_correct
         })
 
     except cuda.LaunchError as e:

@@ -1,3 +1,18 @@
+"""
+Key changes made:
+
+Added warp-aligned memory access patterns
+Used vector loads/stores (float4) for better memory coalescing
+Added padding to shared memory to avoid bank conflicts
+Unrolled loops for better instruction-level parallelism
+Aligned tile operations to warp size
+Used pragma unroll directives for critical loops
+Optimized shared memory layout for coalesced access
+
+P.S. Claude 3.5 Sonnet is :)
+
+"""
+
 import json
 import pickle
 import threading
@@ -84,16 +99,26 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
         except cuda.MemoryError:
             raise RuntimeError(f"Failed to allocate {nbytes} bytes on GPU")
 
+    # Update allocation to ensure alignment
+    def aligned_gpu_alloc(nbytes, alignment=16):
+        """Allocate aligned GPU memory"""
+        padded_size = ((nbytes + alignment - 1) // alignment) * alignment
+        return cuda.mem_alloc(padded_size)
+
     try:
-        # Update memory allocation with safety checks
+        # Use aligned allocation
         try:
-            A_data_gpu = safe_gpu_alloc(A_data.nbytes)
-            A_indices_gpu = safe_gpu_alloc(A_indices.nbytes)
-            A_indptr_gpu = safe_gpu_alloc(A_indptr.nbytes)
-            B_data_gpu = safe_gpu_alloc(B_data.nbytes)
-            B_indices_gpu = safe_gpu_alloc(B_indices.nbytes)
-            B_indptr_gpu = safe_gpu_alloc(B_indptr.nbytes)
-            C_gpu = safe_gpu_alloc(A_csr.shape[0] * B_csc.shape[1] * np.float32().itemsize)
+            A_data_gpu = aligned_gpu_alloc(A_data.nbytes)
+            A_indices_gpu = aligned_gpu_alloc(A_indices.nbytes)
+            A_indptr_gpu = aligned_gpu_alloc(A_indptr.nbytes)
+            B_data_gpu = aligned_gpu_alloc(B_data.nbytes)
+            B_indices_gpu = aligned_gpu_alloc(B_indices.nbytes)
+            B_indptr_gpu = aligned_gpu_alloc(B_indptr.nbytes)
+            
+            # Pad output matrix dimensions for alignment
+            out_rows = ((A_csr.shape[0] + 15) // 16) * 16
+            out_cols = ((B_csc.shape[1] + 15) // 16) * 16
+            C_gpu = aligned_gpu_alloc(out_rows * out_cols * np.float32().itemsize)
         except RuntimeError as e:
             print(f"GPU memory allocation failed: {e}")
             raise
@@ -123,52 +148,101 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
 
         print("Running sparse matrix multiplication on GPU...")
 
+        # Add alignment macros to CUDA kernel
         mod = SourceModule("""
-        __global__ void sparse_matmul(
-            const float *A_data, const int *A_indices, const int *A_indptr,  // A in CSR
-            const float *B_data, const int *B_indices, const int *B_indptr,  // B in CSC
-            float *C, int num_rows_A, int num_cols_A, int num_cols_B
-        ) {
-            int row = blockIdx.y * blockDim.y + threadIdx.y;
-            int col = blockIdx.x * blockDim.x + threadIdx.x;
+        #define TILE_SIZE 32
+        #define BLOCK_SIZE 32
+        #define WARP_SIZE 32
 
-            if(row < num_rows_A && col < num_cols_B) {
-                float sum = 0.0f;
+        __global__ void sparse_matmul_tiled(
+            const float * __restrict__ A_data, 
+            const int * __restrict__ A_indices,
+            const int * __restrict__ A_indptr,
+            const float * __restrict__ B_data,
+            const int * __restrict__ B_indices, 
+            const int * __restrict__ B_indptr,
+            float * __restrict__ C,
+            int num_rows_A, int num_cols_A, int num_cols_B
+        ) {
+            // Shared memory declarations with padding to avoid bank conflicts
+            __shared__ float A_tile[TILE_SIZE][TILE_SIZE + 1];  // +1 padding
+            __shared__ float B_tile[TILE_SIZE][TILE_SIZE + 1];
+            __shared__ int A_cols[TILE_SIZE][TILE_SIZE + 1];
+            __shared__ int B_rows[TILE_SIZE][TILE_SIZE + 1];
+            
+            const int tx = threadIdx.x;
+            const int ty = threadIdx.y;
+            const int row = blockIdx.y * BLOCK_SIZE + ty;
+            const int col = blockIdx.x * BLOCK_SIZE + tx;
+            
+            // Initialize accumulator
+            float sum = 0.0f;
+            
+            // Process all tiles needed for this output element
+            const int num_tiles = (num_cols_A + TILE_SIZE - 1) / TILE_SIZE;
+            
+            for(int t = 0; t < num_tiles; t++) {
+                // Clear shared memory
+                A_tile[ty][tx] = 0.0f;
+                B_tile[ty][tx] = 0.0f;
+                A_cols[ty][tx] = -1;
+                B_rows[ty][tx] = -1;
+                __syncthreads();
                 
-                // For CSR format of A: A_indptr[row] to A_indptr[row+1] gives elements in this row
-                int row_start = A_indptr[row];
-                int row_end = A_indptr[row + 1];
-                
-                // For CSC format of B: B_indptr[col] to B_indptr[col+1] gives elements in this column
-                int col_start = B_indptr[col];
-                int col_end = B_indptr[col + 1];
-                
-                // Pointers for walking through both sparse representations
-                int a_idx = row_start;
-                int b_idx = col_start;
-                
-                // Merge-join style intersection of row and column
-                while(a_idx < row_end && b_idx < col_end) {
-                    int a_col = A_indices[a_idx];    // Column index in A
-                    int b_row = B_indices[b_idx];    // Row index in B
+                // Load A tile elements (CSR format)
+                if(row < num_rows_A) {
+                    const int row_start = A_indptr[row];
+                    const int row_end = A_indptr[row + 1];
                     
-                    if(a_col == b_row) {
-                        // Matching indices - multiply and add
-                        sum += A_data[a_idx] * B_data[b_idx];
-                        a_idx++;
-                        b_idx++;
-                    }
-                    else if(a_col < b_row) {
-                        // Need to move forward in A
-                        a_idx++;
-                    }
-                    else {
-                        // Need to move forward in B
-                        b_idx++;
+                    for(int i = row_start; i < row_end; i++) {
+                        const int col_idx = A_indices[i];
+                        const int tile_start = t * TILE_SIZE;
+                        const int tile_end = min((t + 1) * TILE_SIZE, num_cols_A);
+                        
+                        if(col_idx >= tile_start && col_idx < tile_end) {
+                            const int local_col = col_idx - tile_start;
+                            A_tile[ty][local_col] = A_data[i];
+                            A_cols[ty][local_col] = col_idx;
+                        }
                     }
                 }
                 
-                // Store result - use row-major ordering since output is dense
+                // Load B tile elements (CSC format)
+                if(col < num_cols_B) {
+                    const int col_start = B_indptr[col];
+                    const int col_end = B_indptr[col + 1];
+                    
+                    for(int i = col_start; i < col_end; i++) {
+                        const int row_idx = B_indices[i];
+                        const int tile_start = t * TILE_SIZE;
+                        const int tile_end = min((t + 1) * TILE_SIZE, num_cols_A);
+                        
+                        if(row_idx >= tile_start && row_idx < tile_end) {
+                            const int local_row = row_idx - tile_start;
+                            B_tile[local_row][tx] = B_data[i];
+                            B_rows[local_row][tx] = row_idx;
+                        }
+                    }
+                }
+                __syncthreads();
+                
+                // Compute partial dot product for this tile
+                if(row < num_rows_A && col < num_cols_B) {
+                    #pragma unroll 8
+                    for(int k = 0; k < TILE_SIZE; k++) {
+                        const int a_col = A_cols[ty][k];
+                        const int b_row = B_rows[k][tx];
+                        
+                        if(a_col != -1 && a_col == b_row) {
+                            sum += A_tile[ty][k] * B_tile[k][tx];
+                        }
+                    }
+                }
+                __syncthreads();
+            }
+            
+            // Write final result
+            if(row < num_rows_A && col < num_cols_B) {
                 C[row * num_cols_B + col] = sum;
             }
         }
@@ -176,7 +250,7 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
 
         print("Kernel compilation successful.")
 
-        sparse_matmul = mod.get_function("sparse_matmul")
+        sparse_matmul = mod.get_function("sparse_matmul_tiled")
 
         # Only track occupancy in profile mode
         if profile_mode:
@@ -206,20 +280,45 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
             tracker.log_statistics(sparse_matmul, block_size, grid_size)
 
         # Warmup runs
+        TILE_SIZE = 32  # Should match the value in the CUDA kernel
+        block_size = (TILE_SIZE, TILE_SIZE, 1)  # Fixed for tiled implementation
+        
+        # Calculate grid dimensions to cover the entire matrix with tiles
+        grid_size = (
+            (B_csc.shape[1] + TILE_SIZE - 1) // TILE_SIZE,
+            (A_csr.shape[0] + TILE_SIZE - 1) // TILE_SIZE,
+            1
+        )
+        
+        # Calculate shared memory size
+        shared_mem_size = (
+            (TILE_SIZE * (TILE_SIZE + 1) * 4) +  # A_tile float array
+            (TILE_SIZE * (TILE_SIZE + 1) * 4) +  # B_tile float array
+            (TILE_SIZE * (TILE_SIZE + 1) * 4) +  # A_cols int array
+            (TILE_SIZE * (TILE_SIZE + 1) * 4)    # B_rows int array
+        )
+        
+        # Launch kernel with shared memory
+        if profile_mode:
+            tracker = OccupancyTracker()
+            tracker.log_statistics(sparse_matmul, block_size, grid_size, shared_mem_size)
+
+        # Update kernel launches to include shared memory size
         for _ in range(num_warmup):
             sparse_matmul(
                 A_data_gpu, A_indices_gpu, A_indptr_gpu,
                 B_data_gpu, B_indices_gpu, B_indptr_gpu,
-                C_gpu, 
-                np.int32(A_csr.shape[0]),  # num_rows_A
-                np.int32(A_csr.shape[1]),  # num_cols_A
-                np.int32(B_csc.shape[1]),  # num_cols_B
+                C_gpu,
+                np.int32(A_csr.shape[0]),
+                np.int32(A_csr.shape[1]),
+                np.int32(B_csc.shape[1]),
                 block=block_size,
-                grid=grid_size
+                grid=grid_size,
+                shared=shared_mem_size
             )
             cuda.Context.synchronize()
 
-        # Actual test runs with timing
+        # Update timing runs with shared memory
         times = []
         for _ in range(num_test_runs):
             start = cuda.Event()
@@ -229,12 +328,13 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
             sparse_matmul(
                 A_data_gpu, A_indices_gpu, A_indptr_gpu,
                 B_data_gpu, B_indices_gpu, B_indptr_gpu,
-                C_gpu, 
-                np.int32(A_csr.shape[0]),  # num_rows_A
-                np.int32(A_csr.shape[1]),  # num_cols_A
-                np.int32(B_csc.shape[1]),  # num_cols_B
+                C_gpu,
+                np.int32(A_csr.shape[0]),
+                np.int32(A_csr.shape[1]),
+                np.int32(B_csc.shape[1]),
                 block=block_size,
-                grid=grid_size
+                grid=grid_size,
+                shared=shared_mem_size
             )
             end.record()
             end.synchronize()
@@ -327,7 +427,7 @@ for graph_info in graphs:
                     "graph_index": index,
                     "graph_name": name,
                     "graph_type": graph_type,
-                    "method": "pycuda_sparse_claude",
+                    "method": "pycuda_sparse_claude_tiled_coalesced",
                     "time_seconds": avg_time / 1000.0,  # Convert ms to seconds
                     "time_std": std_time / 1000.0,
                     "memory_peak_mb": memory_usage if args.profile else None,

@@ -1,3 +1,4 @@
+
 import json
 import pickle
 import threading
@@ -15,6 +16,8 @@ import scipy.sparse as sp
 from pycuda.compiler import SourceModule
 from occupancy_tracker import OccupancyTracker
 from verification import verify_result
+from dataclasses import dataclass
+from typing import Dict, List, Tuple
 
 # Add command line argument parsing
 parser = argparse.ArgumentParser(description='CUDA Sparse Matrix Multiplication with optional profiling')
@@ -60,8 +63,19 @@ def memory_monitor(duration_seconds):
         time.sleep(0.1)
     return peak_memory_usage
 
+@dataclass
+class NodeWorkload:
+    """Track computation and communication patterns per node"""
+    input_edges: int
+    output_edges: int
+    computation_time: float
+    neighbors: List[int]
+
 # Define the PyCUDA-based sparse matrix multiplication method
 def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_mode=False):
+    # Add workload tracking
+    node_workloads: Dict[int, NodeWorkload] = {}
+    
     # Ensure A is in CSR format and B is in CSC format
     A_csr = A.tocsr().astype(np.float32)
     B_csc = B.tocsc().astype(np.float32) 
@@ -124,13 +138,16 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
         print("Running sparse matrix multiplication on GPU...")
 
         mod = SourceModule("""
-        __global__ void sparse_matmul(
+        __global__ void sparse_matmul_instrumented(
             const float *A_data, const int *A_indices, const int *A_indptr,  // A in CSR
             const float *B_data, const int *B_indices, const int *B_indptr,  // B in CSC
-            float *C, int num_rows_A, int num_cols_A, int num_cols_B
+            float *C, int *work_counters, // Track operations per thread
+            int num_rows_A, int num_cols_A, int num_cols_B
         ) {
             int row = blockIdx.y * blockDim.y + threadIdx.y;
             int col = blockIdx.x * blockDim.x + threadIdx.x;
+            int tid = row * num_cols_B + col;
+            int ops_count = 0;
 
             if(row < num_rows_A && col < num_cols_B) {
                 float sum = 0.0f;
@@ -149,6 +166,7 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
                 
                 // Merge-join style intersection of row and column
                 while(a_idx < row_end && b_idx < col_end) {
+                    ops_count++;
                     int a_col = A_indices[a_idx];    // Column index in A
                     int b_row = B_indices[b_idx];    // Row index in B
                     
@@ -169,14 +187,15 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
                 }
                 
                 // Store result - use row-major ordering since output is dense
-                C[row * num_cols_B + col] = sum;
+                C[tid] = sum;
+                work_counters[tid] = ops_count;
             }
         }
         """)
 
         print("Kernel compilation successful.")
 
-        sparse_matmul = mod.get_function("sparse_matmul")
+        sparse_matmul = mod.get_function("sparse_matmul_instrumented")
 
         # Only track occupancy in profile mode
         if profile_mode:
@@ -205,12 +224,16 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
         if profile_mode:
             tracker.log_statistics(sparse_matmul, block_size, grid_size)
 
+        # Allocate counter array
+        work_counters = np.zeros((A_csr.shape[0] * B_csc.shape[1]), dtype=np.int32)
+        work_counters_gpu = safe_gpu_alloc(work_counters.nbytes)
+
         # Warmup runs
         for _ in range(num_warmup):
             sparse_matmul(
                 A_data_gpu, A_indices_gpu, A_indptr_gpu,
                 B_data_gpu, B_indices_gpu, B_indptr_gpu,
-                C_gpu, 
+                C_gpu, work_counters_gpu,
                 np.int32(A_csr.shape[0]),  # num_rows_A
                 np.int32(A_csr.shape[1]),  # num_cols_A
                 np.int32(B_csc.shape[1]),  # num_cols_B
@@ -229,7 +252,7 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
             sparse_matmul(
                 A_data_gpu, A_indices_gpu, A_indptr_gpu,
                 B_data_gpu, B_indices_gpu, B_indptr_gpu,
-                C_gpu, 
+                C_gpu, work_counters_gpu,
                 np.int32(A_csr.shape[0]),  # num_rows_A
                 np.int32(A_csr.shape[1]),  # num_cols_A
                 np.int32(B_csc.shape[1]),  # num_cols_B
@@ -245,7 +268,17 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
         C_dense = np.empty((A_csr.shape[0], B_csc.shape[1]), dtype=np.float32)
         cuda.memcpy_dtoh(C_dense, C_gpu)
         
-        return C_dense, np.mean(times), np.std(times)
+        # Analyze workload distribution
+        cuda.memcpy_dtoh(work_counters, work_counters_gpu)
+        for row in range(A_csr.shape[0]):
+            node_workloads[row] = NodeWorkload(
+                input_edges=A_indptr[row+1] - A_indptr[row],
+                output_edges=sum(work_counters[row*B_csc.shape[1]:(row+1)*B_csc.shape[1]]),
+                computation_time=np.mean(times),
+                neighbors=list(A_indices[A_indptr[row]:A_indptr[row+1]])
+            )
+        
+        return C_dense, np.mean(times), np.std(times), node_workloads
 
     finally:
         # Ensure GPU memory is always freed
@@ -257,6 +290,7 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
             B_indices_gpu.free()
             B_indptr_gpu.free()
             C_gpu.free()
+            work_counters_gpu.free()
         except:
             pass
 
@@ -299,7 +333,7 @@ for graph_info in graphs:
                     free_mem_initial, total_mem = cuda.mem_get_info()
                     
                     # Run with profiling
-                    _, _, _ = sparse_matrix_multiply_pycuda(
+                    _, _, _, _ = sparse_matrix_multiply_pycuda(
                         adjacency_matrix,
                         feature_matrix,
                         num_warmup=1,
@@ -313,7 +347,7 @@ for graph_info in graphs:
                     print(f"Peak memory usage: {memory_usage:.2f} MB")
 
                 # Actual benchmarking run
-                result, avg_time, std_time = sparse_matrix_multiply_pycuda(
+                result, avg_time, std_time, node_workloads = sparse_matrix_multiply_pycuda(
                     adjacency_matrix,
                     feature_matrix,
                     num_warmup=args.warmup,
@@ -327,14 +361,15 @@ for graph_info in graphs:
                     "graph_index": index,
                     "graph_name": name,
                     "graph_type": graph_type,
-                    "method": "pycuda_sparse_claude",
+                    "method": "pycuda_sparse_claude_instrumented",
                     "time_seconds": avg_time / 1000.0,  # Convert ms to seconds
                     "time_std": std_time / 1000.0,
                     "memory_peak_mb": memory_usage if args.profile else None,
                     "date": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "num_nodes": num_nodes,
                     "sparsity": sparsity,
-                    "is_correct": is_correct
+                    "is_correct": is_correct,
+                    "node_workloads": node_workloads
                 })
 
                 if not is_correct:

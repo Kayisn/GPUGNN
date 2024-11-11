@@ -327,7 +327,7 @@ for graph_info in graphs:
                     "graph_index": index,
                     "graph_name": name,
                     "graph_type": graph_type,
-                    "method": "pycuda_sparse_claude",
+                    "method": "pycuda_sparse_csr_csc",
                     "time_seconds": avg_time / 1000.0,  # Convert ms to seconds
                     "time_std": std_time / 1000.0,
                     "memory_peak_mb": memory_usage if args.profile else None,
