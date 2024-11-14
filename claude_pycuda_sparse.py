@@ -106,20 +106,6 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, profile_m
         cuda.memcpy_htod(B_indices_gpu, B_indices)
         cuda.memcpy_htod(B_indptr_gpu, B_indptr)
 
-        """
-        CUDA implementation of sparse matrix multiplication using CSR format
-        
-        Binary search function:
-        - Finds elements in sparse matrix columns
-        - Parameters: array (sorted), left/right indices, target value
-        - Returns index if found, -1 otherwise
-        
-        Sparse matrix multiplication kernel:
-        - Multiplies matrices A * B in CSR format
-        - Uses 32x32 thread blocks with shared memory
-        - Binary search to find matching elements
-        - Parallel reduction for final sum
-        """
 
         print("Running sparse matrix multiplication on GPU...")
 
@@ -323,11 +309,14 @@ for graph_info in graphs:
 
                 is_correct = verify_result(result, adjacency_matrix, feature_matrix)
 
+                if not is_correct:
+                    print(f"Graph {name} failed verification.")
+
                 results.append({
                     "graph_index": index,
                     "graph_name": name,
                     "graph_type": graph_type,
-                    "method": "pycuda_sparse_claude",
+                    "method": "pycuda_sparse_claude_" + "{:02d}".format(args.block_size[0]) + "_" + "{:02d}".format(args.block_size[1]),
                     "time_seconds": avg_time / 1000.0,  # Convert ms to seconds
                     "time_std": std_time / 1000.0,
                     "memory_peak_mb": memory_usage if args.profile else None,

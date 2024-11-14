@@ -3,22 +3,62 @@ import pickle
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-
 import numpy as np
 import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
 from pycuda.compiler import SourceModule
+import networkx as nx
+import requests
+import os
+import gzip
 
 from verification import verify_result
 
-# Load graphs
-with open("gnn_test_graphs_with_features.pkl", "rb") as f:
-    graphs = pickle.load(f)
+def download_snap_graph(url, filename):
+    """
+    Downloads and extracts a SNAP graph file.
+    """
+    if not os.path.exists(filename):
+        response = requests.get(url, stream=True)
+        if response.status_code == 200:
+            with open(filename, 'wb') as f:
+                f.write(response.raw.read())
+            print(f"Downloaded: {filename}")
+        else:
+            print(f"Failed to download {url}")
+    else:
+        print(f"File already exists: {filename}")
 
-block_size_used = 16
+def load_snap_graph(filename):
+    """
+    Loads a SNAP graph file using NetworkX.
+    """
+    if filename.endswith('.gz'):
+        with gzip.open(filename, 'rt') as f:
+            G = nx.read_edgelist(f)
+    else:
+        with open(filename, 'r') as f:
+            G = nx.read_edgelist(f)
+    return G
 
-# Memory tracking thread function
+# Example SNAP graph URL (adjust as needed)
+snap_url = "https://snap.stanford.edu/data/facebook_combined.txt.gz"
+snap_filename = "facebook_combined.txt.gz"
+
+# Download the graph
+download_snap_graph(snap_url, snap_filename)
+
+# Load the graph
+G = load_snap_graph(snap_filename)
+print(f"Loaded SNAP graph with {G.number_of_nodes()} nodes and {G.number_of_edges()} edges.")
+
+# Convert the graph to a sparse adjacency matrix
+adjacency_matrix = nx.to_scipy_sparse_matrix(G, format='csr', dtype=np.float32)
+num_nodes = G.number_of_nodes()
+feature_matrix = sp.identity(num_nodes, format='csr', dtype=np.float32)  # Example feature matrix (identity)
+
+# Memory tracking and PyCUDA-based matrix multiplication
 def memory_monitor(stop_event, context):
     peak_memory_usage = 0
     context.push()  # Push the context to the current thread
@@ -30,7 +70,6 @@ def memory_monitor(stop_event, context):
     context.pop()  # Pop the context from the current thread
     return peak_memory_usage
 
-# Define the PyCUDA-based sparse matrix multiplication method
 def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     # Ensure A and B are in CSR format
     A_csr = A.tocsr().astype(np.float32)
@@ -90,10 +129,10 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     )
 
     sparse_matmul = mod.get_function("sparse_matmul")
-    block_size = (block_size_used, block_size_used, 1)
+    block_size = (16, 16, 1)
     grid_size = (
-        int(np.ceil(B_csr.shape[1] / block_size_used)),
-        int(np.ceil(A_csr.shape[0] / block_size_used)),
+        int(np.ceil(B_csr.shape[1] / 16)),
+        int(np.ceil(A_csr.shape[0] / 16)),
         1,
     )
 
@@ -163,120 +202,12 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
             pass
         raise
 
-
-# Run tests and collect results
-results = []
-for graph_info in graphs:
-    index = graph_info["index"]
-    name = graph_info["name"]
-    graph_type = graph_info["type"]
-    graph = graph_info["graph"]
-    feature_matrix = graph_info["feature_matrix"]
-    num_nodes = graph_info["num_nodes"]
-    sparsity = graph_info["sparsity"]
-    print(f"Testing graph {index}")
-
-    # Perform multiplication (example using BFS and feature matrix)
-    aggregated_feature_matrix = feature_matrix.copy()
-
-    free_mem, total_mem = cuda.mem_get_info()
-    memory_idle = total_mem - free_mem
-    stop_event = threading.Event()
-    executor = ThreadPoolExecutor(max_workers=1)
-    context = cuda.Device(0).make_context()
-
-    memory_thread = executor.submit(memory_monitor, stop_event, context)
-
-
-    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-    for node in graph.nodes:
-        for neighbor in graph.neighbors(node):
-            adjacency_matrix[node, neighbor] = 1.0
-    adjacency_matrix = adjacency_matrix.tocsr()
-
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-
-    time.sleep(0.5)  # Wait for memory thread to start
-
-    try:
-        # Execute computation
-        result, mean_time, std_time = sparse_matrix_multiply_pycuda(
-            adjacency_matrix, 
-            feature_matrix,
-            num_warmup=2,
-            num_test_runs=5
-        )
-
-        is_correct = verify_result(result, adjacency_matrix, feature_matrix)
-
-        if not is_correct:
-            print(f"Graph {name} failed verification.")
-        
-        # Stop memory tracking and get results
-        stop_event.set()
-        peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
-
-        results.append({
-            "graph_index": index,
-            "graph_name": name,
-            "graph_type": graph_type,
-            "method": "pycuda_sparse_gpt_" + str(block_size_used),
-            "time_seconds": mean_time / 1000.0,  # Convert ms to seconds
-            "time_std": std_time / 1000.0,  # Convert ms to seconds
-            "memory_peak_mb": peak_memory_usage,
-            "date": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "num_nodes": num_nodes,
-            "sparsity": sparsity,
-            "is_correct": is_correct
-        })
-
-    except cuda.LaunchError as e:
-        print(f"CUDA launch failed: {e}")
-        stop_event.set()
-        continue
-    except Exception as e:
-        print(f"Error processing graph {name}: {e}")
-        stop_event.set()
-        continue
-    finally:
-        context.pop()
-
-import os
-
-# Load existing results or create a new one
-if os.path.exists("gnn_results.json"):
-    with open("gnn_results.json", "r") as f:
-        try:
-            all_results = json.load(f)
-        except json.JSONDecodeError:
-            # Initialize as an empty list if the file is empty or corrupted
-            all_results = []
-else:
-    all_results = []
-
-# Update results by replacing existing ones by graph index and method
-for result in results:
-    # Check if the result already exists in the list
-    if any(
-        r["graph_index"] == result["graph_index"] and r["method"] == result["method"]
-        for r in all_results
-    ):
-        # If so, replace the existing result
-        all_results = [
-            r
-            for r in all_results
-            if not (
-                r["graph_index"] == result["graph_index"]
-                and r["method"] == result["method"]
-            )
-        ]
-        all_results.append(result)
-    else:
-        all_results.append(result)
-
-# Save results
-with open("gnn_results.json", "w") as f:
-    json.dump(all_results, f, indent=4)
-
-# Print confirmation
-print("Results have been saved to 'gnn_results.json'.")
+# Run a test with the loaded SNAP graph
+print(f"Running test with SNAP graph ({snap_filename})")
+result, mean_time, std_time = sparse_matrix_multiply_pycuda(
+    adjacency_matrix,
+    feature_matrix,
+    num_warmup=2,
+    num_test_runs=5
+)
+print(f"Mean time: {mean_time / 1000:.4f} seconds, Std time: {std_time / 1000:.4f} seconds")

@@ -16,7 +16,11 @@ from verification import verify_result
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)
 
-block_size_used = 16
+import os
+# Set CUDA compiler path before importing pycuda
+os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
+os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
+
 
 # Memory tracking thread function
 def memory_monitor(stop_event, context):
@@ -66,8 +70,19 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     mod = SourceModule(
         """
     __global__ void sparse_matmul(float *A_data, int *A_indices, int *A_indptr, float *B_data, int *B_indices, int *B_indptr, float *C, int num_rows, int num_cols, int num_cols_B) {
+        extern __shared__ float shared_B_data[];
+        
         int row = blockIdx.y * blockDim.y + threadIdx.y;
         int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+        // Load B_data into shared memory for coalesced access
+        for (int i = threadIdx.x; i < num_cols_B; i += blockDim.x) {
+            if (i < num_cols_B) {
+                shared_B_data[i] = B_data[i];  // Coalesce memory access for B_data
+            }
+        }
+        __syncthreads();  // Ensure all threads have loaded data into shared memory
+
         if (row < num_rows && col < num_cols_B) {
             float sum = 0;
             int row_start = A_indptr[row];
@@ -78,7 +93,7 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
                 int col_end = B_indptr[k + 1];
                 for (int jdx = col_start; jdx < col_end; ++jdx) {
                     if (B_indices[jdx] == col) {
-                        sum += A_data[idx] * B_data[jdx];
+                        sum += A_data[idx] * shared_B_data[jdx];
                         break;
                     }
                 }
@@ -90,10 +105,10 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     )
 
     sparse_matmul = mod.get_function("sparse_matmul")
-    block_size = (block_size_used, block_size_used, 1)
+    block_size = (16, 16, 1)
     grid_size = (
-        int(np.ceil(B_csr.shape[1] / block_size_used)),
-        int(np.ceil(A_csr.shape[0] / block_size_used)),
+        int(np.ceil(B_csr.shape[1] / 16)),
+        int(np.ceil(A_csr.shape[0] / 16)),
         1,
     )
 
@@ -220,7 +235,7 @@ for graph_info in graphs:
             "graph_index": index,
             "graph_name": name,
             "graph_type": graph_type,
-            "method": "pycuda_sparse_gpt_" + str(block_size_used),
+            "method": "pycuda_sparse_gpt_coalesced",
             "time_seconds": mean_time / 1000.0,  # Convert ms to seconds
             "time_std": std_time / 1000.0,  # Convert ms to seconds
             "memory_peak_mb": peak_memory_usage,
