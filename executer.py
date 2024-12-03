@@ -7,7 +7,6 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
 import scipy.sparse as sp
 
 from utils.verification import verify_result

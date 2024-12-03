@@ -75,17 +75,19 @@ GPUGNN/
 ## Usage
 ```bash
 # Generate test graphs
-python graph_generation.py
+python utils/graph_generation.py
 
-# Run basic sparse implementation
-python claude_pycuda_sparse.py
+# Run basic sparse implementation (leave out --graphs to run on all graphs)
+python process_scripts.py --methods chatgpt_pycuda_sparse
 
-# Run with profiling enabled
-python claude_pycuda_sparse.py --profile
+# Set the number of warmup iterations
+python process_scripts.py --warmup 10 --methods chatgpt_pycuda_sparse
 
-# Run tiled version with custom parameters
-python claude_pycuda_sparse_tiled.py --block-size 16 16 --warmup 5 --test-runs 10
+# Profile all PyCuda implementations on graph indeces 0, 1, and 2
+python process_scripts.py --profile --methods pycuda --graphs 0-2
 
-# Run all or a subset of methods on all generated graphs
-# Edit the file to run the methods you're interested in
-python script_process_graphs.py
+# Only profile the warmup iterations
+python process_scripts.py --profile --nvtx "warmup" --methods cupy --graphs 2
+
+# Run all methods on all generated graphs with no warmup iterations
+python process_scripts.py --profile --warmup 0 --methods all
