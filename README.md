@@ -5,7 +5,7 @@ For a GPU computing class at UVIC
 This project implements and evaluates different GPU-accelerated approaches for sparse matrix operations commonly found in Graph Neural Networks (GNNs), with a focus on sparse matrix multiplication.
 
 ## Project Structure
-GPUGNN/ 
+GPUGNN/\
 ├── graphs/ - Contains generated test graphs\
 ├── plots/ - Contains generated performance plots\
 ├── reports/ - Contains performance profiling reports\
