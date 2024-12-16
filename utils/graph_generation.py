@@ -200,7 +200,7 @@ def save_graphs(graphs):
         with open(graph_dir / f"graph_{index}.pkl", "wb") as f:
             pickle.dump(
                 {
-                    "index": index,
+                    "index": str(index),
                     "name": graph["name"],
                     "type": graph["type"],
                     "graph": graph["graph"],

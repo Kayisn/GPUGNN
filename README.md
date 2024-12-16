@@ -6,16 +6,15 @@ This project implements and evaluates different GPU-accelerated approaches for s
 
 ## Project Structure
 GPUGNN/ 
-├── graph_generation.py # Generates synthetic and real-world test graphs 
-├── claude_pycuda_sparse.py # Base sparse matrix multiplication implementation 
-├── claude_pycuda_sparse_csr_csc.py # CSR-CSC optimized implementation
-├── claude_pycuda_sparse_tiled.py # Tiled implementation with shared memory 
-├── claude_pycuda_sparse_tiled_coalesced.py # Coalesced memory access version 
-├── claude_pycuda_sparse_instrumented.py # Instrumented version for profiling 
-├── metrics.py # Performance metrics and analysis tools 
-├── occupancy_tracker.py # CUDA occupancy tracking utilities 
-├── verification.py # Result verification utilities 
-└── gnn_results.json # Performance results database
+├── graphs/ - Contains generated test graphs
+├── plots/ - Contains generated performance plots
+├── reports/ - Contains performance profiling reports
+├── scripts/ - Contains Python scripts for each implementation
+├── utils/ - Contains utility scripts for graph generation and data processing
+├── README.md - Project overview and usage instructions
+├── process_scripts.py - Main script for running and profiling implementations
+├── results.json - Performance results database
+└── requirements.txt - Python dependencies
 
 
 ## Current State
@@ -26,7 +25,7 @@ GPUGNN/
   - Coalesced memory access version
 - Support for synthetic (Erdős-Rényi, Scale-Free) and real-world graphs (real-world are still test graphs)
 - Performance profiling and metrics collection
-- Thread-safe result logging and verification
+- Result logging and verification
 - Memory usage tracking and occupancy analysis
 
 ## Limitations
@@ -63,14 +62,13 @@ GPUGNN/
    - Add support for graph compression techniques
 
 ## Requirements
-- CUDA Toolkit 12.6
+- CUDA Toolkit 11.0+
 - Python 3.8+
 - Dependencies:
   - PyCUDA
   - NumPy
   - SciPy
   - NetworkX
-  - FileLock
 
 ## Usage
 ```bash
@@ -81,7 +79,7 @@ python utils/graph_generation.py
 python process_scripts.py --methods chatgpt_pycuda_sparse
 
 # Set the number of warmup iterations
-python process_scripts.py --warmup 10 --methods chatgpt_pycuda_sparse
+python process_scripts.py --warmup 10 --methods chatgpt_pycuda_sparse,chatgpt_pytorch_dense
 
 # Profile all PyCuda implementations on graph indeces 0, 1, and 2
 python process_scripts.py --profile --methods pycuda --graphs 0-2

@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.sparse as sp
-import networkx as nx
 
 def verify_result(gpu_result, adj_matrix, feature_matrix, rtol=1e-3, atol=1e-4):
     """
@@ -31,11 +30,9 @@ def verify_result(gpu_result, adj_matrix, feature_matrix, rtol=1e-3, atol=1e-4):
     # Calculate reference result on CPU
     cpu_result = (adj_matrix @ feature_matrix).toarray()
     
-    # Ensure GPU result is dense numpy array
-    if sp.issparse(gpu_result):
-        gpu_result = gpu_result.toarray()
-    
     # Check if shapes match
+    if not isinstance(gpu_result, np.ndarray):
+        gpu_result = gpu_result.toarray()
     if cpu_result.shape != gpu_result.shape:
         print(f"Warning: Shape mismatch - CPU: {cpu_result.shape}, GPU: {gpu_result.shape}")
         return False

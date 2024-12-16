@@ -1,6 +1,6 @@
+import numpy as np
 import nvtx
 import torch
-import numpy as np
 
 # Set the CUDA device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -40,12 +40,11 @@ def execute(graph_info, num_warmup=1, num_runs=1):
                 result = torch.matmul(adjacency_matrix, feature_matrix)
                 end_event.record()
                 torch.cuda.synchronize()
-                
+
                 times.append(start_event.elapsed_time(end_event))
 
         return result, np.mean(times), np.std(times)
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:
-        # Free GPU memory
         torch.cuda.empty_cache()

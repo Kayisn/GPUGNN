@@ -91,5 +91,4 @@ def execute(graph_info, num_warmup=1, num_runs=1):
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:
-        # Clear cache
         torch.cuda.empty_cache()

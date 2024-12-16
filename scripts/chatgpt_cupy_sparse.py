@@ -39,7 +39,7 @@ def sparse_matrix_multiply_cusparse(index, adj_matrix, feat_matrix, num_warmup=2
 
     mean_time = np.mean(times)
     std_time = np.std(times)
-    return result, mean_time, std_time
+    return result.get(), mean_time, std_time
 
 
 def execute(graph_info, num_warmup=1, num_runs=1):

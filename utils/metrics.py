@@ -561,10 +561,10 @@ for graph_info in graphs:
 
 # Thread-safe file operations
 def save_results(new_results):
-    lock_path = "gnn_results.json.lock"
+    lock_path = "results.json.lock"
     with FileLock(lock_path):
-        if os.path.exists("gnn_results.json"):
-            with open("gnn_results.json", "r") as f:
+        if os.path.exists("results.json"):
+            with open("results.json", "r") as f:
                 try:
                     all_results = json.load(f)
                 except json.JSONDecodeError:
@@ -579,11 +579,11 @@ def save_results(new_results):
                                and r["method"] == result["method"])]
             all_results.append(result)
 
-        with open("gnn_results.json", "w") as f:
+        with open("results.json", "w") as f:
             json.dump(all_results, f, indent=4)
 
 # Save results thread-safely
 save_results(results)
 
 # Print confirmation
-print("Results have been saved to 'gnn_results.json'.")
+print("Results have been saved to 'results.json'.")

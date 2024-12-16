@@ -22,16 +22,7 @@ from pycuda.compiler import SourceModule
 from utils.occupancy_tracker import OccupancyTracker
 
 # Set CUDA compiler path
-cuda_path = Path(
-    subprocess.run(["where", "nvcc"], capture_output=True).stdout.decode().split("\n")[0].strip()
-).parent.parent
-os.environ["CUDA_PATH"] = str(cuda_path)
-
-# os.environ["PATH"] = (
-#     r"C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64"
-#     + os.pathsep
-#     + os.environ["PATH"]
-# )
+os.environ["CUDA_PATH"] = str(Path(subprocess.check_output(["where", "nvcc"], text=True).strip()).parent.parent)
 
 
 # Define the PyCUDA-based sparse matrix multiplication method
