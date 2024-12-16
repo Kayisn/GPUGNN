@@ -6,14 +6,14 @@ This project implements and evaluates different GPU-accelerated approaches for s
 
 ## Project Structure
 GPUGNN/ 
-├── graphs/ - Contains generated test graphs
-├── plots/ - Contains generated performance plots
-├── reports/ - Contains performance profiling reports
-├── scripts/ - Contains Python scripts for each implementation
-├── utils/ - Contains utility scripts for graph generation and data processing
-├── README.md - Project overview and usage instructions
-├── process_scripts.py - Main script for running and profiling implementations
-├── results.json - Performance results database
+├── graphs/ - Contains generated test graphs\
+├── plots/ - Contains generated performance plots\
+├── reports/ - Contains performance profiling reports\
+├── scripts/ - Contains Python scripts for each implementation\
+├── utils/ - Contains utility scripts for graph generation and data processing\
+├── README.md - Project overview and usage instructions\
+├── process_scripts.py - Main script for running and profiling implementations\
+├── results.json - Performance results database\
 └── requirements.txt - Python dependencies
 
 
