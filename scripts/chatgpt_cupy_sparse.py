@@ -1,4 +1,5 @@
 import cupy as cp
+import networkx as nx
 import numpy as np
 import nvtx
 import scipy.sparse as sp
@@ -22,7 +23,7 @@ def sparse_matrix_multiply_cusparse(index, adj_matrix, feat_matrix, num_warmup):
             result = adj_gpu.dot(feat_gpu)
             cp.cuda.stream.get_current_stream().synchronize()
 
-    # Actual tests
+    # Main
     with nvtx.annotate(f"main {index}", domain="chatgpt_cupy_sparse"):
         result = adj_gpu.dot(feat_gpu)
         cp.cuda.stream.get_current_stream().synchronize()
@@ -34,16 +35,11 @@ def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    num_nodes = graph_info["num_nodes"]
-    try:
-        # Prepare adjacency matrix
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
 
-        # Execute computation
+    # Prepare adjacency matrix
+    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
+
+    try:
         return sparse_matrix_multiply_cusparse(index, adjacency_matrix, feature_matrix, num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")

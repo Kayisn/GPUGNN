@@ -79,7 +79,7 @@ for method in methods:
         else:
             print(f"Running {method}...")
             subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-            print(f"Completed running {method}.")
+            print(f"Completed running {method}.\n")
     except subprocess.CalledProcessError as e:
         print(f"Error running {method}. Exit code: {e.returncode}")
         exit()
@@ -194,8 +194,6 @@ for method in methods:
             for graph_idx, graph_metrics in graphs.items():
                 results[method][graph_idx]["metrics"] = dict()
                 for metric, data in graph_metrics.items():
-                    print(f"Processing {metric} for {method} on graph {graph_idx}")
-                    print(data)
                     if metric in sum_metrics:
                         metric_value = sum(data["values"])
                     elif metric in max_metrics:

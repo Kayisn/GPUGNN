@@ -1,5 +1,6 @@
 import math
 
+import networkx as nx
 import numpy as np
 import nvtx
 import pycuda.autoinit
@@ -181,7 +182,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
                 1,
             )
 
-        # Warmup runs
+        # Warmup
         with nvtx.annotate(f"warmup {index}", domain="chatgpt_pycuda_decomposed"):
             for _ in range(num_warmup):
                 sparse_matmul(
@@ -201,7 +202,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
                 )
                 stream.synchronize()
 
-        # Actual test runs with timing
+        # Main
         with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_decomposed"):
             sparse_matmul(
                 A_data_gpu,
@@ -261,16 +262,12 @@ def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    num_nodes = graph_info["num_nodes"]
     context = cuda.Device(0).make_context()
-    try:
-        # Create adjacency matrix
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
 
+    # Create adjacency matrix
+    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
+
+    try:
         # Debug prints
         print(f"Matrix sizes - Adjacency: {adjacency_matrix.shape}, Features: {feature_matrix.shape}")
         print(f"Non-zero elements - Adjacency: {adjacency_matrix.nnz}, Features: {feature_matrix.nnz}")

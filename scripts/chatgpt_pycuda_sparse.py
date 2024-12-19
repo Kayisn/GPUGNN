@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 import nvtx
 import pycuda.autoinit
@@ -75,7 +76,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
         )
 
     try:
-        # Warmup runs
+        # Warmup
         with nvtx.annotate(f"warmup {index}", domain="chatgpt_pycuda_sparse"):
             for _ in range(num_warmup):
                 sparse_matmul(
@@ -94,7 +95,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
                 )
                 cuda.Context.synchronize()
 
-        # Actual test runs
+        # Main
         with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_sparse"):
             sparse_matmul(
                 A_data_gpu,
@@ -132,17 +133,12 @@ def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    num_nodes = graph_info["num_nodes"]
     context = cuda.Device(0).make_context()
-    try:
-        # Perform multiplication (example using BFS and feature matrix)
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
 
-        # Execute computation
+    # Perform multiplication (example using BFS and feature matrix)
+    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
+
+    try:
         return sparse_matrix_multiply_pycuda(adjacency_matrix, feature_matrix, index, num_warmup=num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")

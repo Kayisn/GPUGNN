@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 import nvtx
 import pycuda.autoinit
@@ -43,6 +44,7 @@ def dense_matrix_multiply_pycuda(A, B, index, num_warmup):
             1,
         )
 
+    # Warmup
     with nvtx.annotate(f"warmup {index}", domain="chatgpt_pycuda_dense"):
         for _ in range(num_warmup):
             matmul(
@@ -56,6 +58,7 @@ def dense_matrix_multiply_pycuda(A, B, index, num_warmup):
             )
             cuda.Context.synchronize()
 
+    # Main
     with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_dense"):
         matmul(
             A_gpu,
@@ -82,21 +85,16 @@ def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    num_nodes = graph_info["num_nodes"]
     context = cuda.Device(0).make_context()
+
+    # Perform multiplication (example using BFS and feature matrix)
+    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
+
+    # convert to dense matrix
+    feature_matrix_dense = feature_matrix.toarray()
+    adjacency_matrix_dense = adjacency_matrix.toarray()
+
     try:
-        # Perform multiplication (example using BFS and feature matrix)
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
-
-        # convert to dense matrix
-        feature_matrix_dense = feature_matrix.toarray()
-
-        adjacency_matrix_dense = adjacency_matrix.toarray()
-
         return dense_matrix_multiply_pycuda(adjacency_matrix_dense, feature_matrix_dense, index, num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")
