@@ -18,7 +18,6 @@ parser = argparse.ArgumentParser(description="Run GNN experiments with CuPy spar
 parser.add_argument("--method", "-m", type=str, choices=methods, help="Method to run", required=True)
 parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
 parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmup runs")
-parser.add_argument("--test-runs", "-r", type=int, default=1, help="Number of test runs for timing")
 parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
 args = parser.parse_args()
 
@@ -27,7 +26,7 @@ method = importlib.import_module(f"scripts.{args.method}")
 
 # Load graphs
 graphs = []
-graph_indices = "*" if args.graphs is None else f"[{args.graphs}]"
+graph_indices = "*" if args.graphs is None or args.graphs == "all" else f"[{args.graphs}]"
 for graph_file in Path("graphs").glob(f"graph_{graph_indices}.pkl"):
     with open(graph_file, "rb") as f:
         graphs.append(pickle.load(f))
@@ -45,7 +44,7 @@ for graph_info in graphs:
     print(f"Testing graph {graph_idx}...")
 
     # Execute the method
-    result, mean_time, std_time = method.execute(graph_info, num_warmup=args.warmup, num_runs=args.test_runs)
+    result = method.execute(graph_info, num_warmup=args.warmup)
 
     # Verify the result
     is_correct = None
@@ -60,8 +59,6 @@ for graph_info in graphs:
         "graph_name": graph_name,
         "graph_type": graph_type,
         "method": args.method,
-        "time_seconds": mean_time / 1000,
-        "time_std": std_time / 1000,
         "date": time.strftime("%Y-%m-%d %H:%M:%S"),
         "num_nodes": num_nodes,
         "sparsity": sparsity,

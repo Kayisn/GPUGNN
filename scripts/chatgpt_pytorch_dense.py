@@ -7,7 +7,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = graph_info["feature_matrix"]
@@ -31,19 +31,10 @@ def execute(graph_info, num_warmup=1, num_runs=1):
 
         # Actual runs
         with nvtx.annotate(f"main {index}", domain="chatgpt_pytorch_dense"):
-            times = []
-            for _ in range(num_runs):
-                start_event = torch.cuda.Event(enable_timing=True)
-                end_event = torch.cuda.Event(enable_timing=True)
+            result = torch.matmul(adjacency_matrix, feature_matrix)
+            torch.cuda.synchronize()
 
-                start_event.record()
-                result = torch.matmul(adjacency_matrix, feature_matrix)
-                end_event.record()
-                torch.cuda.synchronize()
-
-                times.append(start_event.elapsed_time(end_event))
-
-        return result, np.mean(times), np.std(times)
+        return result
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:

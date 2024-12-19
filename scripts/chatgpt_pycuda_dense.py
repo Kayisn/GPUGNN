@@ -7,7 +7,7 @@ from pycuda.compiler import SourceModule
 
 
 # Define the PyCUDA-based multiplication method
-def dense_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
+def dense_matrix_multiply_pycuda(A, B, index, num_warmup):
     with nvtx.annotate(f"prepare {index}", domain="chatgpt_pycuda_dense"):
         A_dense = A.toarray().astype(np.float32) if sp.issparse(A) else A.astype(np.float32)
         B_dense = B.astype(np.float32)
@@ -42,7 +42,7 @@ def dense_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
             int(np.ceil(A_dense.shape[0] / 16)),
             1,
         )
-    
+
     with nvtx.annotate(f"warmup {index}", domain="chatgpt_pycuda_dense"):
         for _ in range(num_warmup):
             matmul(
@@ -57,25 +57,16 @@ def dense_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
             cuda.Context.synchronize()
 
     with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_dense"):
-        times = []
-        for _ in range(num_test_runs):
-            start = cuda.Event()
-            end = cuda.Event()
-
-            start.record()
-            matmul(
-                A_gpu,
-                B_gpu,
-                C_gpu,
-                np.int32(A_dense.shape[1]),
-                np.int32(B_dense.shape[1]),
-                block=block_size,
-                grid=grid_size,
-            )
-            end.record()
-            end.synchronize()
-
-            times.append(start.time_till(end))
+        matmul(
+            A_gpu,
+            B_gpu,
+            C_gpu,
+            np.int32(A_dense.shape[1]),
+            np.int32(B_dense.shape[1]),
+            block=block_size,
+            grid=grid_size,
+        )
+        cuda.Context.synchronize()
 
     C_dense = np.empty((A_dense.shape[0], B_dense.shape[1]), dtype=np.float32)
     cuda.memcpy_dtoh(C_dense, C_gpu)
@@ -84,10 +75,10 @@ def dense_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
     B_gpu.free()
     C_gpu.free()
 
-    return C_dense, np.mean(times), np.std(times)
+    return C_dense
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
@@ -106,7 +97,7 @@ def execute(graph_info, num_warmup=1, num_runs=1):
 
         adjacency_matrix_dense = adjacency_matrix.toarray()
 
-        return dense_matrix_multiply_pycuda(adjacency_matrix_dense, feature_matrix_dense, index, num_warmup, num_runs)
+        return dense_matrix_multiply_pycuda(adjacency_matrix_dense, feature_matrix_dense, index, num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:

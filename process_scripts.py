@@ -22,7 +22,6 @@ parser = argparse.ArgumentParser(description="Profile GNN experiments with diffe
 parser.add_argument("--methods", "-m", type=str, default="all", help="List of methods to run")
 parser.add_argument("--list-methods", default=False, action="store_true", help="List available methods")
 parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmup runs")
-parser.add_argument("--test-runs", "-r", type=int, default=1, help="Number of test runs for timing")
 parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
 parser.add_argument("--profile", default=False, action="store_true", help="Enable profiling")
 parser.add_argument("--nvtx", "-n", type=str, default="main", help="Which NVTX range to profile")
@@ -30,16 +29,12 @@ parser.add_argument("--graphs", "-g", type=str, default=None, help="Index patter
 args = parser.parse_args()
 
 # List of methods to run
-methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
+methods = all_methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
 
-if args.methods == "cupy":
-    methods = [method for method in methods if "cupy" in method]
-elif args.methods == "pytorch":
-    methods = [method for method in methods if "pytorch" in method]
-elif args.methods == "pycuda":
-    methods = [method for method in methods if "pycuda" in method]
-elif args.methods != "all":
-    methods = [method for method in methods if method in args.methods.split(",")]
+if args.methods != "all":
+    methods = []
+    for method in args.methods.split(","):
+        methods.extend(method for method in all_methods if args.methods in method)
 
 if args.list_methods:
     print("Available methods:")
@@ -53,7 +48,7 @@ if args.profile:
 
 # Run each script sequentially
 for method in methods:
-    cmd = f"python executer.py --method {method} --warmup {args.warmup} --test-runs {args.test_runs} {'--graphs ' + args.graphs if args.graphs else ''} {'--verify' if args.verify else ''}"
+    cmd = f"python executer.py --method {method} --warmup {args.warmup} {'--graphs ' + args.graphs if args.graphs else ''} {'--verify' if args.verify else ''}"
 
     try:
         if args.profile:
@@ -89,7 +84,7 @@ for method in methods:
         print(f"Error running {method}. Exit code: {e.returncode}")
         exit()
 
-    if args.profile:
+    if args.profile and (report_dir / f"report_{method}.ncu-rep").exists():
         """
         What's happening here?
 

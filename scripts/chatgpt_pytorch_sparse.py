@@ -8,7 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
 
-def sparse_matrix_multiply_pytorch(adj_matrix, feat_matrix, index, num_warmup=2, num_runs=5):
+def sparse_matrix_multiply_pytorch(adj_matrix, feat_matrix, index, num_warmup):
     # Convert scipy sparse matrix to PyTorch sparse tensor
     if not isinstance(adj_matrix, sp.csr_matrix):
         adj_matrix = adj_matrix.to_sparse_csr()
@@ -56,22 +56,13 @@ def sparse_matrix_multiply_pytorch(adj_matrix, feat_matrix, index, num_warmup=2,
 
     # Actual runs
     with nvtx.annotate(f"main {index}", domain="chatgpt_pytorch_sparse"):
-        times = []
-        for _ in range(num_runs):
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
+        result = torch.sparse.mm(adj_sparse, feat_sparse)
+        torch.cuda.synchronize()
 
-            start_event.record()
-            result = torch.sparse.mm(adj_sparse, feat_sparse)
-            end_event.record()
-            torch.cuda.synchronize()
-
-            times.append(start_event.elapsed_time(end_event))
-
-    return result, np.mean(times), np.std(times)
+    return result
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
@@ -85,9 +76,7 @@ def execute(graph_info, num_warmup=1, num_runs=1):
     adjacency_matrix = adjacency_matrix.tocsr()
 
     try:
-        return sparse_matrix_multiply_pytorch(
-            adjacency_matrix, feature_matrix, index, num_warmup=num_warmup, num_runs=num_runs
-        )
+        return sparse_matrix_multiply_pytorch(adjacency_matrix, feature_matrix, index, num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:

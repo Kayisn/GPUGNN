@@ -7,7 +7,7 @@ from pycuda.compiler import SourceModule
 
 
 # Define the PyCUDA-based sparse matrix multiplication method
-def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
+def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
     # Ensure A and B are in CSR format
     A_csr = A.tocsr().astype(np.float32)
     B_csr = B.tocsr().astype(np.float32)
@@ -96,36 +96,27 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
 
         # Actual test runs
         with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_sparse"):
-            times = []
-            for _ in range(num_test_runs):
-                start = cuda.Event()
-                end = cuda.Event()
-
-                start.record()
-                sparse_matmul(
-                    A_data_gpu,
-                    A_indices_gpu,
-                    A_indptr_gpu,
-                    B_data_gpu,
-                    B_indices_gpu,
-                    B_indptr_gpu,
-                    C_gpu,
-                    np.int32(A.shape[0]),
-                    np.int32(A.shape[1]),
-                    np.int32(B.shape[1]),
-                    block=block_size,
-                    grid=grid_size,
-                )
-                end.record()
-                end.synchronize()
-
-                times.append(start.time_till(end))
+            sparse_matmul(
+                A_data_gpu,
+                A_indices_gpu,
+                A_indptr_gpu,
+                B_data_gpu,
+                B_indices_gpu,
+                B_indptr_gpu,
+                C_gpu,
+                np.int32(A.shape[0]),
+                np.int32(A.shape[1]),
+                np.int32(B.shape[1]),
+                block=block_size,
+                grid=grid_size,
+            )
+            cuda.Context.synchronize()
 
         # Copy the result back to host
         C_dense = np.empty((A_csr.shape[0], B_csr.shape[1]), dtype=np.float32)
         cuda.memcpy_dtoh(C_dense, C_gpu)
 
-        return C_dense, np.mean(times), np.std(times)
+        return C_dense
     finally:
         # Free GPU memory
         A_data_gpu.free()
@@ -137,7 +128,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
         C_gpu.free()
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
@@ -152,9 +143,7 @@ def execute(graph_info, num_warmup=1, num_runs=1):
         adjacency_matrix = adjacency_matrix.tocsr()
 
         # Execute computation
-        return sparse_matrix_multiply_pycuda(
-            adjacency_matrix, feature_matrix, index, num_warmup=num_warmup, num_test_runs=num_runs
-        )
+        return sparse_matrix_multiply_pycuda(adjacency_matrix, feature_matrix, index, num_warmup=num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:

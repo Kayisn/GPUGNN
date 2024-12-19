@@ -9,14 +9,12 @@ import pycuda.driver as cuda
 import scipy.sparse as sp
 from pycuda.compiler import SourceModule
 
-from utils.occupancy_tracker import OccupancyTracker
-
 # Set CUDA compiler path
 os.environ["CUDA_PATH"] = str(Path(subprocess.check_output(["where", "nvcc"], text=True).strip()).parent.parent)
 
 
 # Define the PyCUDA-based sparse matrix multiplication method
-def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5, profile_mode=False):
+def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
     # Ensure A is in CSR format and B is in CSC format
     A_csr = A.tocsr().astype(np.float32)
     B_csc = B.tocsc().astype(np.float32)
@@ -132,15 +130,7 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5, pr
 
             sparse_matmul = mod.get_function("sparse_matmul")
 
-            # Only track occupancy in profile mode
-            if profile_mode:
-                tracker = OccupancyTracker()
-                suggested_block_size = tracker.suggest_block_size(sparse_matmul)
-                print("\nProfiling Information:")
-                print(f"Suggested block size: {suggested_block_size}")
-                block_size = suggested_block_size  # Use suggested size when profiling
-            else:
-                block_size = (32, 32, 1)  # Default size otherwise
+            block_size = (32, 32, 1)
 
             # Adjust grid size calculation to ensure coverage
             grid_size = (
@@ -173,36 +163,27 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5, pr
 
         # Actual test runs
         with nvtx.annotate(f"main {index}", domain="claude_pycuda_sparse_csr_csc"):
-            times = []
-            for _ in range(num_test_runs):
-                start = cuda.Event()
-                end = cuda.Event()
-
-                start.record()
-                sparse_matmul(
-                    A_data_gpu,
-                    A_indices_gpu,
-                    A_indptr_gpu,
-                    B_data_gpu,
-                    B_indices_gpu,
-                    B_indptr_gpu,
-                    C_gpu,
-                    np.int32(A_csr.shape[0]),  # num_rows_A
-                    np.int32(A_csr.shape[1]),  # num_cols_A
-                    np.int32(B_csc.shape[1]),  # num_cols_B
-                    block=block_size,
-                    grid=grid_size,
-                )
-                end.record()
-                end.synchronize()
-
-                times.append(start.time_till(end))
+            sparse_matmul(
+                A_data_gpu,
+                A_indices_gpu,
+                A_indptr_gpu,
+                B_data_gpu,
+                B_indices_gpu,
+                B_indptr_gpu,
+                C_gpu,
+                np.int32(A_csr.shape[0]),  # num_rows_A
+                np.int32(A_csr.shape[1]),  # num_cols_A
+                np.int32(B_csc.shape[1]),  # num_cols_B
+                block=block_size,
+                grid=grid_size,
+            )
+            cuda.Context.synchronize()
 
         # Safe memory transfer back
         C_dense = np.empty((A_csr.shape[0], B_csc.shape[1]), dtype=np.float32)
         cuda.memcpy_dtoh(C_dense, C_gpu)
 
-        return C_dense, np.mean(times), np.std(times)
+        return C_dense
 
     finally:
         # Ensure GPU memory is always freed
@@ -218,24 +199,22 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5, pr
             pass
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
     num_nodes = graph_info["num_nodes"]
     context = cuda.Device(0).make_context()
-    try:
-        # Create matrices
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
 
-        # Actual benchmarking run
-        return sparse_matrix_multiply_pycuda(
-            adjacency_matrix, feature_matrix, index, num_warmup=num_warmup, num_test_runs=num_runs
-        )
+    # Prepare adjacency matrix
+    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
+    for node in graph.nodes:
+        for neighbor in graph.neighbors(node):
+            adjacency_matrix[node, neighbor] = 1.0
+    adjacency_matrix = adjacency_matrix.tocsr()
+
+    try:
+        return sparse_matrix_multiply_pycuda(adjacency_matrix, feature_matrix, index, num_warmup)
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:
