@@ -11,15 +11,13 @@ def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = graph_info["feature_matrix"]
-    
+
     try:
         with nvtx.annotate(f"prepare {index}", domain="chatgpt_pytorch_dense"):
             feature_matrix = torch.tensor(feature_matrix.toarray(), dtype=torch.float32).to(device)
 
             # Prepare adjacency matrix
-            adjacency_matrix = torch.tensor(
-                nx.to_scipy_sparse_array(graph, format="lil").toarray(), dtype=torch.float32
-            ).to(device)
+            adjacency_matrix = torch.tensor(nx.to_numpy_array(graph), dtype=torch.float32).to(device)
 
         # Warmup
         with nvtx.annotate(f"warmup {index}", domain="chatgpt_pytorch_dense"):

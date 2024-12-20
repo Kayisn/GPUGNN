@@ -211,6 +211,26 @@ for method in methods:
                         "unit": data["unit"],
                     }
 
+                # metrics computed manually
+                results[method][graph_idx]["metrics"]["active_cycles_ratio"] = {
+                    "value": results[method][graph_idx]["metrics"]["cycles_active"]["value"]
+                    / results[method][graph_idx]["metrics"]["cycles_elapsed"]["value"],
+                    "unit": "%",
+                }
+                results[method][graph_idx]["metrics"]["dram_throughput"] = {
+                    "value": results[method][graph_idx]["metrics"]["dram_bytes"]["value"]
+                    / results[method][graph_idx]["metrics"]["time_duration"]["value"],
+                    "unit": "B/s",
+                }
+                results[method][graph_idx]["metrics"]["l1tex_hit_rate"] = {
+                    "value": results[method][graph_idx]["metrics"]["l1tex_bytes_lookup_hit"]["value"]
+                    / (
+                        results[method][graph_idx]["metrics"]["l1tex_bytes_lookup_hit"]["value"]
+                        + results[method][graph_idx]["metrics"]["l1tex_bytes_lookup_miss"]["value"]
+                    ),
+                    "unit": "%",
+                }
+
         with open("results.json", "w") as f:
             json.dump(results, f, indent=4)
 
