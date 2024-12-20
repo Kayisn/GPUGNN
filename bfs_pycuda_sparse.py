@@ -25,18 +25,6 @@ import os
 os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
 os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
 
-# Memory tracking thread function
-def memory_monitor(stop_event, context):
-    peak_memory_usage = 0
-    context.push()  # Push the context to the current thread
-    while not stop_event.is_set():
-        free_mem, total_mem = cuda.mem_get_info()
-        used_mem = total_mem - free_mem
-        peak_memory_usage = max(peak_memory_usage, used_mem)
-        time.sleep(0.1)  # Sleep for a short duration to avoid busy-waiting
-    context.pop()  # Pop the context from the current thread
-    return peak_memory_usage
-
 # Define the PyCUDA-based sparse matrix multiplication method
 def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5, stream=None):
     # Ensure A and B are in CSR format
@@ -345,8 +333,6 @@ for graph_info in graphs:
     executor = ThreadPoolExecutor(max_workers=1)
     context = cuda.Device(0).make_context()
 
-    memory_thread = executor.submit(memory_monitor, stop_event, context)
-
 
     adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
     for node in graph.nodes:
@@ -438,7 +424,6 @@ for graph_info in graphs:
         
         # Stop memory tracking and get results
         stop_event.set()
-        peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
 
         results.append({
             "graph_index": index,
@@ -448,7 +433,6 @@ for graph_info in graphs:
             "decomposition_time": decomp_time,
             "time_seconds": mult_time / 1000.0,  # Convert ms to seconds
             "time_std": np.std(cluster_times) / 1000.0 if cluster_times else 0,
-            "memory_peak_mb": peak_memory_usage,
             "num_clusters": len(clusters),
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,

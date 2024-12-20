@@ -9,6 +9,7 @@ import numpy as np
 import scipy.sparse as sp
 from cupyx.scipy import sparse as cusp
 
+
 # Load graphs
 with open("gnn_test_graphs_with_features.pkl", "rb") as f:
     graphs = pickle.load(f)

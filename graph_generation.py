@@ -133,9 +133,9 @@ def generate_feature_matrices(graphs, num_features=10):
 # Parameters for graph generation
 
 filename = 'gnn_test_graphs_with_features.pkl'
-num_graphs = 2
-num_nodes_list = [10000]
-sparsity_levels = [0.025, 0.05, 0.075, 0.1, 0.125, 0.15]
+num_graphs = 3
+num_nodes_list = [100000]
+sparsity_levels = [0.0001, 0.001, 0.01]
 number_of_features = 10
 g_type = 'erdos-renyi'
 """

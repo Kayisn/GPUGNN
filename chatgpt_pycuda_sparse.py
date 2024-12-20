@@ -18,17 +18,6 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 
 block_size_used = 16
 
-# Memory tracking thread function
-def memory_monitor(stop_event, context):
-    peak_memory_usage = 0
-    context.push()  # Push the context to the current thread
-    while not stop_event.is_set():
-        free_mem, total_mem = cuda.mem_get_info()
-        used_mem = total_mem - free_mem
-        peak_memory_usage = max(peak_memory_usage, used_mem)
-        time.sleep(0.1)  # Sleep for a short duration to avoid busy-waiting
-    context.pop()  # Pop the context from the current thread
-    return peak_memory_usage
 
 # Define the PyCUDA-based sparse matrix multiplication method
 def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
@@ -163,14 +152,22 @@ def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
             pass
         raise
 
-
+import networkx as nx
 # Run tests and collect results
 results = []
 for graph_info in graphs:
     index = graph_info["index"]
     name = graph_info["name"]
     graph_type = graph_info["type"]
-    graph = graph_info["graph"]
+    if "graph" not in graph_info:
+        print("Converting graph to nx")
+        adjacency_matrix = sp.csr_matrix(graph_info["adjacency"])
+        # Convert to NetworkX graph using the updated function
+        graph = nx.from_scipy_sparse_array(adjacency_matrix)
+        print("Converting graph to nx")
+    else:
+        graph = graph_info["graph"]
+
     feature_matrix = graph_info["feature_matrix"]
     num_nodes = graph_info["num_nodes"]
     sparsity = graph_info["sparsity"]
@@ -184,8 +181,6 @@ for graph_info in graphs:
     stop_event = threading.Event()
     executor = ThreadPoolExecutor(max_workers=1)
     context = cuda.Device(0).make_context()
-
-    memory_thread = executor.submit(memory_monitor, stop_event, context)
 
 
     adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
@@ -203,7 +198,7 @@ for graph_info in graphs:
         result, mean_time, std_time = sparse_matrix_multiply_pycuda(
             adjacency_matrix, 
             feature_matrix,
-            num_warmup=2,
+            num_warmup=0,
             num_test_runs=5
         )
 
@@ -214,7 +209,6 @@ for graph_info in graphs:
         
         # Stop memory tracking and get results
         stop_event.set()
-        peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
 
         results.append({
             "graph_index": index,
@@ -223,7 +217,6 @@ for graph_info in graphs:
             "method": "pycuda_sparse_gpt_" + str(block_size_used),
             "time_seconds": mean_time / 1000.0,  # Convert ms to seconds
             "time_std": std_time / 1000.0,  # Convert ms to seconds
-            "memory_peak_mb": peak_memory_usage,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
             "sparsity": sparsity,

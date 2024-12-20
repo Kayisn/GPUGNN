@@ -13,7 +13,11 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 
 # Define the PyCUDA-based multiplication method
 def matrix_multiply(A, B):
-
+    # Ensure A is in CSR format for efficient multiplication
+    if not sp.isspmatrix_csr(A):
+        A = sp.csr_matrix(A)
+    if not sp.isspmatrix_csr(B):
+        B = sp.csr_matrix(B)
     return A @ B
 
 
@@ -31,12 +35,15 @@ for graph_info in graphs:
     print(f"Testing graph {index}")
 
 
-    adjacency_matrix = np.zeros((num_nodes, num_nodes), dtype=np.float32)
+    # Convert adjacency matrix to sparse format
+    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
     for node in graph.nodes:
         for neighbor in graph.neighbors(node):
             adjacency_matrix[node, neighbor] = 1.0
-
-
+    
+    # Convert to CSR format for efficient multiplication
+    adjacency_matrix = adjacency_matrix.tocsr()
+    feature_matrix = sp.csr_matrix(feature_matrix)
 
     start_time = time.time()
     result = matrix_multiply(adjacency_matrix, feature_matrix)

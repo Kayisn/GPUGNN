@@ -25,29 +25,20 @@ import os
 os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
 os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
 
-import pycuda.driver as cuda
-def get_gpu_capabilities():
-    """Check GPU capabilities including tensor core support"""
-    device = cuda.Device(0)
-    attributes = device.get_attributes()
-    
-    # Check for Tensor Core support (SM 7.0 or higher)
-    compute_capability = device.compute_capability()
-    has_tensor_cores = compute_capability[0] >= 7
-
-    return {
-        'has_tensor_cores': has_tensor_cores,
-        'compute_capability': compute_capability,
-        'total_memory': device.total_memory()
-    }
-
-def get_num_sms():
-    device = cuda.Device(0)
-    return device.get_attribute(cuda.device_attribute.MULTIPROCESSOR_COUNT)
-
+# Memory tracking thread function
+def memory_monitor(stop_event, context):
+    peak_memory_usage = 0
+    context.push()  # Push the context to the current thread
+    while not stop_event.is_set():
+        free_mem, total_mem = cuda.mem_get_info()
+        used_mem = total_mem - free_mem
+        peak_memory_usage = max(peak_memory_usage, used_mem)
+        time.sleep(0.1)  # Sleep for a short duration to avoid busy-waiting
+    context.pop()  # Pop the context from the current thread
+    return peak_memory_usage
 
 # Define the PyCUDA-based sparse matrix multiplication method
-def sparse_matrix_multiply_pycuda(A, B, stream=None, num_warmup=2, num_test_runs=5):
+def sparse_matrix_multiply_pycuda(A, B, num_warmup=2, num_test_runs=5):
     # Ensure A and B are in CSR format
     A_csr = A.tocsr().astype(np.float32)
     B_csr = B.tocsr().astype(np.float32)
@@ -122,8 +113,7 @@ def sparse_matrix_multiply_pycuda(A, B, stream=None, num_warmup=2, num_test_runs
                 C_gpu, np.int32(A.shape[0]), np.int32(A.shape[1]),
                 np.int32(B.shape[1]),
                 block=block_size,
-                grid=grid_size,
-                stream=stream
+                grid=grid_size
             )
             cuda.Context.synchronize()
 
@@ -140,8 +130,7 @@ def sparse_matrix_multiply_pycuda(A, B, stream=None, num_warmup=2, num_test_runs
                 C_gpu, np.int32(A.shape[0]), np.int32(A.shape[1]),
                 np.int32(B.shape[1]),
                 block=block_size,
-                grid=grid_size,
-                stream=stream
+                grid=grid_size
             )
             end_event.record()
             end_event.synchronize()
@@ -178,10 +167,6 @@ def sparse_matrix_multiply_pycuda(A, B, stream=None, num_warmup=2, num_test_runs
         except:
             pass
         raise
-
-import numpy as np
-import scipy.sparse as sp
-from collections import deque
 
 def bfs_cluster(adjacency_matrix, start_node, max_edges):
     """Create a cluster using BFS until reaching max_edges"""
@@ -269,59 +254,32 @@ class CUDAContextManager:
         if self.context:
             self.context.pop()
 
-import threading
-import pycuda.driver as cuda
-import pycuda.autoinit  # Automatically initializes the CUDA driver
-
-class SingletonCUDAContextManager:
-    _instance = None
-    _lock = threading.Lock()
-
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super(SingletonCUDAContextManager, cls).__new__(cls)
-                    cls._instance.context = cuda.Device(0).make_context()
-        return cls._instance
-
-    def __enter__(self):
-        self._lock.acquire()
-        self.context.push()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.context.pop()
-        self._lock.release()
-
 def process_cluster(cluster_data):
     """Process a single cluster using sparse matrix multiplication"""
-    with CUDAThreadManager.get_context():
+    with CUDAContextManager():
         sub_adj, sub_feat, nodes_idx, all_nodes = cluster_data
-        result, cluster_time, _ = sparse_matrix_multiply_pycuda(
-            sub_adj, sub_feat, num_warmup=0, num_test_runs=1)
-        # Return the result and the corresponding node indices
-        return result, nodes_idx, cluster_time
+        result, cluster_time, _ = sparse_matrix_multiply_pycuda(sub_adj, sub_feat, num_warmup=0, num_test_runs=1)
+        # Only return results for the original cluster nodes
+        return result[:len(nodes_idx)], cluster_time
 
-from concurrent.futures import ThreadPoolExecutor
-
-def process_clusters_pipelined(cluster_data, num_workers=4):
-    """Process clusters with a limited number of worker threads"""
-    results = {}
-    lock = threading.Lock()
-
-    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        future_to_idx = {executor.submit(process_cluster, data): idx for idx, data in enumerate(cluster_data)}
-        for future in concurrent.futures.as_completed(future_to_idx):
-            idx = future_to_idx[future]
+def process_cluster_pipelined(cluster_queue, result_dict, lock):
+    """Process clusters sequentially with proper context management"""
+    with CUDAContextManager():
+        while True:
             try:
-                result, nodes_idx, cluster_time = future.result()
-                with lock:
-                    results[idx] = (result, nodes_idx, cluster_time)
-            except Exception as e:
-                print(f"Error processing cluster {idx}: {e}")
-                with lock:
-                    results[idx] = None
-    return results
+                idx, (sub_adj, sub_feat, nodes_idx, all_nodes) = cluster_queue.get_nowait()
+                try:
+                    result, cluster_time, _ = sparse_matrix_multiply_pycuda(
+                        sub_adj, sub_feat, num_warmup=0, num_test_runs=1)
+                    
+                    with lock:
+                        result_dict[idx] = (result[:len(nodes_idx)], nodes_idx, cluster_time)
+                except Exception as e:
+                    print(f"Error processing cluster {idx}: {e}")
+                    with lock:
+                        result_dict[idx] = None
+            except Empty:
+                break
 
 import threading
 from contextlib import contextmanager
@@ -331,8 +289,25 @@ class CUDAThreadManager:
     _local = threading.local()
     
     @classmethod
+    @contextmanager
     def get_context(cls):
-        return SingletonCUDAContextManager()
+        if not hasattr(cls._local, 'context_count'):
+            cls._local.context_count = 0
+        
+        if cls._local.context_count == 0:
+            ctx = cuda.Device(0).make_context()
+        else:
+            ctx = cuda.Context.get_current()
+            ctx.push()
+            
+        cls._local.context_count += 1
+        try:
+            yield
+        finally:
+            cls._local.context_count -= 1
+            cuda.Context.pop()
+            if cls._local.context_count == 0:
+                ctx.detach()
 
 class Pipeline:
     def __init__(self, batch_size=2):
@@ -407,21 +382,13 @@ class Pipeline:
         
         return results
 
-import networkx as nx
 # Run tests and collect results
 results = []
 for graph_info in graphs:
     index = graph_info["index"]
     name = graph_info["name"]
     graph_type = graph_info["type"]
-    if "graph" not in graph_info:
-        print("Converting graph to nx")
-        adjacency_matrix_csr = sp.csr_matrix(graph_info["adjacency"])
-        # Convert to NetworkX graph using the updated function
-        graph = nx.from_scipy_sparse_array(adjacency_matrix_csr)
-        print("Converting graph to nx")
-    else:
-        graph = graph_info["graph"]
+    graph = graph_info["graph"]
     feature_matrix = graph_info["feature_matrix"]
     num_nodes = graph_info["num_nodes"]
     sparsity = graph_info["sparsity"]
@@ -433,15 +400,17 @@ for graph_info in graphs:
     free_mem, total_mem = cuda.mem_get_info()
     memory_idle = total_mem - free_mem
     stop_event = threading.Event()
-    executor = ThreadPoolExecutor(max_workers=1)
+    executor = ThreadPoolExecutor(max_workers=4)
     context = cuda.Device(0).make_context()
 
-    num_nodes = graph.number_of_nodes()
-    edges = np.array(graph.edges())
-    row_indices = edges[:, 0]
-    col_indices = edges[:, 1]
-    data = np.ones(len(row_indices), dtype=np.float32)
-    adjacency_matrix = sp.csr_matrix((data, (row_indices, col_indices)), shape=(num_nodes, num_nodes))
+    memory_thread = executor.submit(memory_monitor, stop_event, context)
+
+
+    adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
+    for node in graph.nodes:
+        for neighbor in graph.neighbors(node):
+            adjacency_matrix[node, neighbor] = 1.0
+
 
     # Break these up into smaller blocks for larger graphs using BFS
 
@@ -452,21 +421,12 @@ for graph_info in graphs:
     time.sleep(0.5)  # Wait for memory thread to start
 
     try:
-        
-        # Calculate batch size dynamically based on GPU SMs
-        num_sms = get_num_sms()
-        threads_per_sm = 1024  # Adjust based on your GPU architecture
-        total_threads = num_sms * threads_per_sm
-        threads_per_edge = 1  # Define based on kernel requirements
-        batch_size = total_threads // threads_per_edge
-
-
         # Time the decomposition phase separately
         decomp_start = time.perf_counter()
         
         # Create clusters
         number_of_edges = adjacency_matrix.nnz
-        max_edges_per_cluster = min(batch_size, number_of_edges )
+        max_edges_per_cluster = np.log2(num_nodes) * number_of_edges / num_nodes
         clusters = create_clusters(adjacency_matrix, max_edges_per_cluster)
         
         # Prepare cluster data
@@ -485,7 +445,7 @@ for graph_info in graphs:
             start_event.record()
             
             pipeline = Pipeline(batch_size=4)
-            result_dict = pipeline.process_clusters(cluster_data, num_workers=2)
+            result_dict = pipeline.process_clusters(cluster_data, num_workers=4)
             
             # Combine results with proper error handling
             result = np.zeros((num_nodes, feature_matrix.shape[1]), dtype=np.float32)
@@ -522,6 +482,7 @@ for graph_info in graphs:
         
         # Stop memory tracking and get results
         stop_event.set()
+        peak_memory_usage = (memory_thread.result() - memory_idle) / 1024**2
 
         results.append({
             "graph_index": index,
@@ -531,6 +492,7 @@ for graph_info in graphs:
             "decomposition_time": decomp_time,
             "multiplication_time": mult_time / 1000.0,  # Convert ms to seconds
             "time_std": np.std(cluster_times) / 1000.0 if cluster_times else 0,
+            "memory_peak_mb": peak_memory_usage,
             "num_clusters": len(clusters),
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
             "num_nodes": num_nodes,
@@ -546,7 +508,8 @@ for graph_info in graphs:
         print(f"Error processing graph {name}: {e}")
         stop_event.set()
         continue
-
+    finally:
+        context.pop()
 
 import os
 
