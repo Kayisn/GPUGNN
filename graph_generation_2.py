@@ -98,10 +98,10 @@ def generate_feature_matrix(num_nodes, num_features):
 
 # Parameters for graph generation
 filename = 'gnn_test_graphs_with_features.pkl'
-num_graphs = 2
-num_nodes_list = [100000]
+num_graphs = 1
+num_nodes_list = [10000, 50000, 100000, 200000]
 sparsity_levels = [0.0001, 0.001]
-number_of_features = 10
+number_of_features = 32
 graph_type = 'erdos-renyi'  # 'erdos-renyi' or 'scale-free'
 
 graphs = []

@@ -25,8 +25,6 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 
 import os
 
-from cuda_init import CUDAManager, CUDAContext
-
 # Set CUDA compiler path before importing pycuda
 #os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
 #os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
@@ -190,7 +188,7 @@ def create_clusters_metis_bfs_gpu(adjacency_matrix, num_clusters):
     """
     Create clusters using GPU-accelerated METIS/BFS hybrid partitioning
     """
-    from cuda_partition import gpu_partition_graph
+    from cuda_partition_simplified import gpu_partition_graph
     return gpu_partition_graph(adjacency_matrix, num_clusters)
 
 class CUDAKernelManager:
@@ -640,7 +638,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "pycuda_sparse_bfs_tensor_simplified",
+                        "method": "pycuda_sparse_bfs_tensor_simplified_02",
                         "decomposition_time": decomp_time,
                         "multiplication_time": end_time,
                         "num_clusters": len(clusters),
@@ -654,7 +652,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "pycuda_sparse_bfs_tensor_simplified_total_time",
+                        "method": "pycuda_sparse_bfs_tensor_simplified_02_total_time",
                         "decomposition_time": 0,  # Set to 0 since we're using total time
                         "multiplication_time": decomp_time + end_time, # Add decomp_time and mult_time
                         "num_clusters": len(clusters),
@@ -668,7 +666,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "verify_time_cpu",
+                        "method": "verify_time_cpu_sparse",
                         "decomposition_time": 0,  # Set to 0 since we're using total time
                         "multiplication_time": end_time_cpu, # Add decomp_time and mult_time
                         "num_clusters": len(clusters),

@@ -25,8 +25,6 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 
 import os
 
-from cuda_init import CUDAManager, CUDAContext
-
 # Set CUDA compiler path before importing pycuda
 #os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
 #os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
@@ -120,44 +118,28 @@ KERNEL_TIMEOUT = 3600  # Adjust this value based on your needs
 
 gpu_caps = get_gpu_capabilities()
 kernel_source = """
-__global__ void sparse_matmul(float *A_data, int *A_indices, int *A_indptr, 
-                            float *B_data, int *B_indices, int *B_indptr, 
-                            float *C, int num_rows, int num_cols, int num_cols_B) {
-    int row = blockIdx.y * blockDim.y + threadIdx.y;
-    int col = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (row < num_rows && col < num_cols_B) {
-        float sum = 0.0f;
-        int row_start = A_indptr[row];
-        int row_end = A_indptr[row + 1];
-        
-        // Coalesced memory access pattern for Maxwell
-        for (int idx = row_start; idx < row_end; ++idx) {
-            int k = A_indices[idx];
-            float a_val = A_data[idx];
-            
-            int col_start = B_indptr[k];
-            int col_end = B_indptr[k + 1];
-            
-            // Binary search for matching column
-            int left = col_start;
-            int right = col_end - 1;
-            
-            while (left <= right) {
-                int mid = (left + right) >> 1;
-                int bcol = B_indices[mid];
-                if (bcol == col) {
-                    sum += a_val * B_data[mid];
-                    break;
+            __global__ void sparse_matmul(float *A_data, int *A_indices, int *A_indptr, float *B_data, int *B_indices, int *B_indptr, float *C, int num_rows, int num_cols, int num_cols_B) {
+                int row = blockIdx.y * blockDim.y + threadIdx.y;
+                int col = blockIdx.x * blockDim.x + threadIdx.x;
+                if (row < num_rows && col < num_cols_B) {
+                    float sum = 0;
+                    int row_start = A_indptr[row];
+                    int row_end = A_indptr[row + 1];
+                    for (int idx = row_start; idx < row_end; ++idx) {
+                        int k = A_indices[idx];
+                        int col_start = B_indptr[k];
+                        int col_end = B_indptr[k + 1];
+                        for (int jdx = col_start; jdx < col_end; ++jdx) {
+                            if (B_indices[jdx] == col) {
+                                sum += A_data[idx] * B_data[jdx];
+                                break;
+                            }
+                        }
+                    }
+                    C[row * num_cols_B + col] = sum;
                 }
-                if (bcol < col) left = mid + 1;
-                else right = mid - 1;
             }
-        }
-        C[row * num_cols_B + col] = sum;
-    }
-}
-"""
+            """
 kernel_name = "sparse_matmul"
 
 def extract_submatrices(adjacency_matrix, feature_matrix, cluster_nodes):
@@ -190,7 +172,7 @@ def create_clusters_metis_bfs_gpu(adjacency_matrix, num_clusters):
     """
     Create clusters using GPU-accelerated METIS/BFS hybrid partitioning
     """
-    from cuda_partition import gpu_partition_graph
+    from cuda_partition_simplified import gpu_partition_graph
     return gpu_partition_graph(adjacency_matrix, num_clusters)
 
 class CUDAKernelManager:
@@ -640,7 +622,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "pycuda_sparse_bfs_tensor_simplified",
+                        "method": "pycuda_sparse_bfs_tensor_simplified_03",
                         "decomposition_time": decomp_time,
                         "multiplication_time": end_time,
                         "num_clusters": len(clusters),
@@ -654,7 +636,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "pycuda_sparse_bfs_tensor_simplified_total_time",
+                        "method": "pycuda_sparse_bfs_tensor_simplified_03_total_time",
                         "decomposition_time": 0,  # Set to 0 since we're using total time
                         "multiplication_time": decomp_time + end_time, # Add decomp_time and mult_time
                         "num_clusters": len(clusters),
@@ -668,7 +650,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "verify_time_cpu",
+                        "method": "verify_time_cpu_sparse",
                         "decomposition_time": 0,  # Set to 0 since we're using total time
                         "multiplication_time": end_time_cpu, # Add decomp_time and mult_time
                         "num_clusters": len(clusters),
