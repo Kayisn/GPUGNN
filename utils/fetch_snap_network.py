@@ -4,7 +4,7 @@ from pathlib import Path
 
 def download_snap_graph(url, filename):
     """
-    Downloads and a SNAP graph file.
+    Downloads and a SNAP graph file. E.g.: https://snap.stanford.edu/data/wiki-Vote.txt.gz
     """
     if not filename.exists():
         response = requests.get(url, stream=True)

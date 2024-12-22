@@ -1,6 +1,4 @@
 import argparse
-import csv
-import gzip
 import importlib
 import json
 import pickle
