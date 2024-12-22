@@ -1,0 +1,44 @@
+[
+    {
+        "matrix_name": "bcsstk17.mtx",
+        "num_rows": 10974,
+        "num_cols": 10974,
+        "sparsity": 0.9964406317976957,
+        "multiply_time_seconds": 4.5294
+    },
+    {
+        "matrix_name": "bcsstk18.mtx",
+        "num_rows": 11948,
+        "num_cols": 11948,
+        "sparsity": 0.9989556211051371,
+        "multiply_time_seconds": 7.2439
+    },
+    {
+        "matrix_name": "bcsstk25.mtx",
+        "num_rows": 15439,
+        "num_cols": 15439,
+        "sparsity": 0.9989417766379668,
+        "multiply_time_seconds": 11.5401
+    },
+    {
+        "matrix_name": "bcsstk29.mtx",
+        "num_rows": 13992,
+        "num_cols": 13992,
+        "sparsity": 0.9968357316653378,
+        "multiply_time_seconds": 7.4200
+    },
+    {
+        "matrix_name": "bcsstk30.mtx",
+        "num_rows": 28924,
+        "num_cols": 28924,
+        "sparsity": 0.9975573781587486,
+        "multiply_time_seconds": 38.4870
+    },
+    {
+        "matrix_name": "bcsstk31.mtx",
+        "num_rows": 35588,
+        "num_cols": 35588,
+        "sparsity": 0.9990671846491049,
+        "multiply_time_seconds": 54.4556
+    }
+]
