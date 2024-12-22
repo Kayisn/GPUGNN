@@ -10,6 +10,8 @@ import networkx as nx
 
 from utils.verification import verify_result
 
+results_path = Path("results") / "results.json"
+
 if __name__ == "__main__":
     # Get all available methods
     methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
@@ -66,10 +68,10 @@ if __name__ == "__main__":
 
         print(f"Processing completed successfully.\n")
 
-    if not Path("results.json").exists():
+    if not results_path.exists():
         prev_results = {}
     else:
-        with open("results.json", "r") as f:
+        with open(results_path, "r") as f:
             try:
                 prev_results = json.load(f)
             except json.JSONDecodeError:
@@ -82,7 +84,7 @@ if __name__ == "__main__":
                 result["metrics"] = prev_results[method][graph_idx]["metrics"]
             prev_results[method][graph_idx] = result
 
-    with open("results.json", "w") as f:
+    with open(results_path, "w") as f:
         json.dump(prev_results, f, indent=4)
 
     print("Results have been saved to 'results.json'.")

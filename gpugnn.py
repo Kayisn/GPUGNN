@@ -42,6 +42,7 @@ if args.list_methods:
     exit()
 
 
+results_path = Path("results") / "results.json"
 report_dir = Path("reports")
 if args.profile:
     report_dir.mkdir(exist_ok=True)
@@ -164,11 +165,11 @@ for method in methods:
         }  # metrics we will take the average of
         all_metrics = {**nan_metrics, **sum_metrics, **max_metrics, **avg_metrics}
 
-        with open("results.json", "r") as f:
+        with open(results_path, "r") as f:
             try:
                 results = json.load(f)
             except json.JSONDecodeError:
-                raise ValueError("Invalid JSON format in results.json")
+                raise ValueError(f"Invalid JSON format in {results_path}")
 
         # metrics structure: method -> graph_index -> nvtx_range -> metric: {values: [], unit: ""}
         metrics = defaultdict(
@@ -190,7 +191,9 @@ for method in methods:
                             for metric in all_metrics.keys():
                                 if metric_data := action.metric_by_name(metric):
                                     if metric_data.value() is not None:
-                                        metrics[method][graph_idx][nvtx_range][metric]["values"].append(metric_data.value())
+                                        metrics[method][graph_idx][nvtx_range][metric]["values"].append(
+                                            metric_data.value()
+                                        )
                                         metrics[method][graph_idx][nvtx_range][metric]["unit"] = metric_data.unit()
 
         for method, graphs in metrics.items():
@@ -236,7 +239,7 @@ for method in methods:
                         "unit": "%",
                     }
 
-        with open("results.json", "w") as f:
+        with open(results_path, "w") as f:
             json.dump(results, f, indent=4)
 
 print("All scripts have been executed.")
