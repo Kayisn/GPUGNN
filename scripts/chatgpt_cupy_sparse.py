@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cupy as cp
 import networkx as nx
 import numpy as np
@@ -8,23 +10,22 @@ from cupyx.scipy import sparse as cusp
 
 # Define the CuPy sparse matrix multiplication method
 def sparse_matrix_multiply_cusparse(index, adj_matrix, feat_matrix, num_warmup):
-    with nvtx.annotate(f"prepare {index}", domain="chatgpt_cupy_sparse"):
-        # Convert to CSR format and move to GPU
-        adj_gpu = cusp.csr_matrix(adj_matrix)
-        feat_gpu = cusp.csr_matrix(feat_matrix)
+    # Convert to CSR format and move to GPU
+    adj_gpu = cusp.csr_matrix(adj_matrix)
+    feat_gpu = cusp.csr_matrix(feat_matrix)
 
-        # Ensure matrices are contiguous and optimally laid out
-        adj_gpu.sort_indices()
-        feat_gpu.sort_indices()
+    # Ensure matrices are contiguous and optimally laid out
+    adj_gpu.sort_indices()
+    feat_gpu.sort_indices()
 
     # Warmup
-    with nvtx.annotate(f"warmup {index}", domain="chatgpt_cupy_sparse"):
+    with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
         for _ in range(num_warmup):
             result = adj_gpu.dot(feat_gpu)
             cp.cuda.stream.get_current_stream().synchronize()
 
     # Main
-    with nvtx.annotate(f"main {index}", domain="chatgpt_cupy_sparse"):
+    with nvtx.annotate(f"main {index}", domain=Path(__file__).stem):
         result = adj_gpu.dot(feat_gpu)
         cp.cuda.stream.get_current_stream().synchronize()
 

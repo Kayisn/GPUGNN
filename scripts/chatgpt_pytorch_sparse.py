@@ -1,4 +1,5 @@
 import warnings
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -6,7 +7,7 @@ import nvtx
 import scipy.sparse as sp
 import torch
 
-warnings.filterwarnings("ignore", ".*Sparse CSR tensor support is in beta state.*") # Suppress PyTorch warning
+warnings.filterwarnings("ignore", ".*Sparse CSR tensor support is in beta state.*")  # Suppress PyTorch warning
 
 # Set the CUDA device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -26,33 +27,32 @@ def sparse_matrix_multiply_pytorch(adj_matrix, feat_matrix, index, num_warmup):
             shape=feat_matrix.shape,
         )
 
-    with nvtx.annotate(f"prepare {index}", domain="chatgpt_pytorch_sparse"):
-        # Convert adjacency matrix to CSR format
-        adj_matrix = adj_matrix.tocsr()
+    # Convert adjacency matrix to CSR format
+    adj_matrix = adj_matrix.tocsr()
 
-        # Convert to PyTorch sparse tensors
-        adj_sparse = torch.sparse_csr_tensor(
-            torch.from_numpy(adj_matrix.indptr).to(device),
-            torch.from_numpy(adj_matrix.indices).to(device),
-            torch.from_numpy(adj_matrix.data).to(device),
-            size=adj_matrix.shape,
-        )
+    # Convert to PyTorch sparse tensors
+    adj_sparse = torch.sparse_csr_tensor(
+        torch.from_numpy(adj_matrix.indptr).to(device),
+        torch.from_numpy(adj_matrix.indices).to(device),
+        torch.from_numpy(adj_matrix.data).to(device),
+        size=adj_matrix.shape,
+    )
 
-        feat_sparse = torch.sparse_csr_tensor(
-            torch.from_numpy(feat_matrix.indptr).to(device),
-            torch.from_numpy(feat_matrix.indices).to(device),
-            torch.from_numpy(feat_matrix.data).to(device),
-            size=feat_matrix.shape,
-        )
+    feat_sparse = torch.sparse_csr_tensor(
+        torch.from_numpy(feat_matrix.indptr).to(device),
+        torch.from_numpy(feat_matrix.indices).to(device),
+        torch.from_numpy(feat_matrix.data).to(device),
+        size=feat_matrix.shape,
+    )
 
     # Warmup
-    with nvtx.annotate(f"warmup {index}", domain="chatgpt_pytorch_sparse"):
+    with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
         for _ in range(num_warmup):
             result = torch.sparse.mm(adj_sparse, feat_sparse)
             torch.cuda.synchronize()
 
     # Main
-    with nvtx.annotate(f"main {index}", domain="chatgpt_pytorch_sparse"):
+    with nvtx.annotate(f"main {index}", domain=Path(__file__).stem):
         result = torch.sparse.mm(adj_sparse, feat_sparse)
         torch.cuda.synchronize()
 

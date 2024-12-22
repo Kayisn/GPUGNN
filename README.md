@@ -14,7 +14,7 @@ GPUGNN/\
 ├──── graph_generation.py - Graph generation script\
 ├──── verification.py - Graph verification script\
 ├── executer.py - Executes a method on a given set of graphs and optionally verifies the results\
-├── process_scripts.py - Main script for running and profiling implementations\
+├── gpugnn.py - Main script for running and profiling implementations\
 ├── results.json - Performance results database\
 ├── requirements.txt - Python dependencies
 └── README.md - Project overview and usage instructions\
@@ -78,17 +78,17 @@ GPUGNN/\
 python utils/graph_generation.py
 
 # Run basic sparse implementation (leave out --graphs to run on all graphs)
-python process_scripts.py --methods chatgpt_pycuda_sparse
+python gpugnn.py --methods chatgpt_pycuda_sparse
 
 # Run chatgpt_pycuda_sparse and chatgpt_pytorch_dense with 10 warmup iterations and verify results
-python process_scripts.py --warmup 10 --methods chatgpt_pycuda_sparse,chatgpt_pytorch_dense --verify
+python gpugnn.py --warmup 10 --methods chatgpt_pycuda_sparse,chatgpt_pytorch_dense --verify
 
 # Profile all PyCuda implementations on graph indeces 0, 1, and 2
-python process_scripts.py --profile --methods pycuda --graphs 0-2
+python gpugnn.py --profile --methods pycuda --graphs 0-2
 
 # Only profile the warmup iterations for the CuPy implementation on graph index 2
-python process_scripts.py --profile --nvtx "warmup" --methods cupy --graphs 2
+python gpugnn.py --profile --nvtx "warmup" --methods cupy --graphs 2
 
 # Run all methods on all generated graphs with no warmup iterations
-python process_scripts.py --profile --warmup 0 --methods all --graphs all
+python gpugnn.py --profile --warmup 0 --methods all --graphs all
 ```

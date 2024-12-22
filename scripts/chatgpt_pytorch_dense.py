@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import networkx as nx
 import nvtx
 import torch
@@ -13,20 +15,17 @@ def execute(graph_info, num_warmup=1):
     feature_matrix = graph_info["feature_matrix"]
 
     try:
-        with nvtx.annotate(f"prepare {index}", domain="chatgpt_pytorch_dense"):
-            feature_matrix = torch.tensor(feature_matrix.toarray(), dtype=torch.float32).to(device)
-
-            # Prepare adjacency matrix
-            adjacency_matrix = torch.tensor(nx.to_numpy_array(graph), dtype=torch.float32).to(device)
+        feature_matrix = torch.tensor(feature_matrix.toarray(), dtype=torch.float32).to(device)
+        adjacency_matrix = torch.tensor(nx.to_numpy_array(graph), dtype=torch.float32).to(device)
 
         # Warmup
-        with nvtx.annotate(f"warmup {index}", domain="chatgpt_pytorch_dense"):
+        with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
             for _ in range(num_warmup):
                 result = torch.matmul(adjacency_matrix, feature_matrix)
                 torch.cuda.synchronize()
 
         # Main
-        with nvtx.annotate(f"main {index}", domain="chatgpt_pytorch_dense"):
+        with nvtx.annotate(f"main {index}", domain=Path(__file__).stem):
             result = torch.matmul(adjacency_matrix, feature_matrix)
             torch.cuda.synchronize()
 
