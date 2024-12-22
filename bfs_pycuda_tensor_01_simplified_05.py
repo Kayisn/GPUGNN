@@ -25,18 +25,41 @@ with open("gnn_test_graphs_with_features.pkl", "rb") as f:
 
 import os
 
-def create_clusters_metis_bfs_gpu(adjacency_matrix, num_clusters):
-    """
-    Create clusters using GPU-accelerated METIS/BFS hybrid partitioning
-    """
-    from cuda_partition_simplified_02 import gpu_partition_graph
-    return gpu_partition_graph(adjacency_matrix, num_clusters)
+def create_clusters_metis_bfs_gpu(adjacency_matrix, kernel_manager, feature_matrix=None):
+    """Create clusters using GPU-accelerated METIS/BFS hybrid partitioning"""
+    try:
+        if not kernel_manager.context:
+            kernel_manager.init_context()
+            
+        if not kernel_manager.get_kernel('compute_edge_weights') or \
+           not kernel_manager.get_kernel('balanced_bfs'):
+            raise RuntimeError("Required kernels not initialized")
+        
+        from cuda_partition_01_05 import gpu_partition_graph
+        
+        # Ensure feature matrix exists
+        if feature_matrix is None:
+            feature_matrix = sp.eye(adjacency_matrix.shape[0], format='csr')
+            
+        clusters = gpu_partition_graph(adjacency_matrix, kernel_manager, feature_matrix)
+        if not clusters:
+            raise RuntimeError("Partitioning returned no clusters")
+            
+        return clusters
+        
+    except Exception as e:
+        print(f"GPU clustering failed: {e}")
+        # Print more detailed error information
+        import traceback
+        print(traceback.format_exc())
+        raise
 
 # Set CUDA compiler path before importing pycuda
 #os.environ['CUDA_PATH'] = r'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\12.6'
 #os.environ['PATH'] = r'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\BuildTools\\VC\\Tools\\MSVC\\14.41.34120\\bin\\Hostx64\\x64' + os.pathsep + os.environ['PATH']
 
 import pycuda.driver as cuda
+
 def get_gpu_capabilities():
     """Check GPU capabilities including tensor core support"""
     device = cuda.Device(0)
@@ -55,9 +78,6 @@ def get_gpu_capabilities():
 def get_num_sms():
     device = cuda.Device(0)
     return device.get_attribute(cuda.device_attribute.MULTIPROCESSOR_COUNT)
-
-
-
 
 
 
@@ -225,27 +245,63 @@ class CUDAKernelManager:
     _lock = threading.Lock()
     
     def __init__(self):
-        self.kernel = None
+        self.kernels = {}
         self.streams = {}
         self.context = None
-        self.mod = None
+        self.mods = {}
     
     def init_context(self):
         if self.context is None:
             self.context = cuda.Device(0).make_context()
-            # Compile kernel once
             try:
-                self.mod = SourceModule(kernel_source)
-                self.kernel = self.mod.get_function(kernel_name)
-                if self.kernel is None:
-                    raise RuntimeError("Failed to compile kernel")
+                # Load partition kernels
+                from cuda_partition_01_05 import PARTITION_KERNELS
+                print("Compiling CUDA kernels...")
+                
+                # Compile without redefining macros that are already in the source
+                self.mods['partition'] = SourceModule(
+                    PARTITION_KERNELS,
+                    options=[],  # Remove macro definitions
+                    include_dirs=[]
+                )
+                
+                # Get function handles with exact names from the CUDA code
+                try:
+                    # These must match the actual function names in the CUDA code
+                    self.kernels['compute_edge_weights'] = self.mods['partition'].get_function('compute_edge_weights_kernel')
+                    self.kernels['balanced_bfs'] = self.mods['partition'].get_function('balanced_bfs_kernel')
+                    self.kernels['spectral_clustering'] = self.mods['partition'].get_function('spectral_clustering_kernel')
+                    
+                    print("Successfully loaded all kernels")
+                    
+                    # Set parameter types using PyCUDA's standard pointer type
+                    for k in ['compute_edge_weights', 'balanced_bfs', 'spectral_clustering']:
+                        if k in self.kernels and self.kernels[k]:
+                            self.kernels[k] = self.mods['partition'].get_function(f"{k}_kernel")
+                            print(f"Loaded kernel: {k}")
+                    
+                    # Load sparse matmul kernel
+                    self.mods['sparse_matmul'] = SourceModule(kernel_source)
+                    self.kernels['sparse_matmul'] = self.mods['sparse_matmul'].get_function(kernel_name)
+                    print("Loaded sparse matmul kernel")
+                    
+                except Exception as e:
+                    print(f"Error getting kernel functions: {e}")
+                    raise
+                
             except Exception as e:
-                print(f"Error compiling kernel: {e}")
+                print(f"Error initializing kernels: {str(e)}")
                 if self.context:
                     self.context.pop()
                     self.context = None
                 raise
-    
+
+    def get_kernel(self, kernel_name):
+        """Get a specific compiled kernel"""
+        if (kernel_name not in self.kernels) or (self.kernels[kernel_name] is None):
+            print(f"Warning: Kernel '{kernel_name}' not found. Available kernels: {list(self.kernels.keys())}")
+        return self.kernels.get(kernel_name)
+
     @classmethod
     def get_instance(cls):
         if cls._instance is None:
@@ -281,9 +337,10 @@ class GPUPipeline:
         self.kernel_compiled = False
         self.max_threads_per_block = cuda.Device(0).get_attribute(cuda.device_attribute.MAX_THREADS_PER_BLOCK)
         self.block_size = None  # Will be set dynamically
-        self.block = (16, 16, 1)  # Fixed block size for Maxwell
+        self.block = (32, 32, 1)  # Changed block size
         self.mod = None
         self.kernel = None
+        self.sparse_matmul_kernel = None  # Initialize as None
         try:
             # Check if async operations are available
             self.use_async = hasattr(cuda, 'mem_alloc_async')
@@ -297,9 +354,16 @@ class GPUPipeline:
                 if self.kernel_manager is None:
                     self.kernel_manager = CUDAKernelManager.get_instance()
                 self.kernel_manager.init_context()
-                if self.kernel_manager.kernel is None:
-                    raise RuntimeError("Kernel compilation failed")
+                
+                # Compile kernel directly
+                self.mod = SourceModule(kernel_source)
+                self.sparse_matmul_kernel = self.mod.get_function(kernel_name)
+                
+                if self.sparse_matmul_kernel is None:
+                    raise RuntimeError("Failed to compile sparse matmul kernel")
+                
                 self.kernel_compiled = True
+                
             except Exception as e:
                 print(f"Failed to initialize kernel manager: {e}")
                 raise
@@ -363,104 +427,82 @@ class GPUPipeline:
     def process_batch(self, batch_data):
         """Process a batch using proper CUDA memory management"""
         try:
-            self.init_cuda()
+            if not self.kernel_compiled:
+                self.init_kernel_manager()
             
             results = []
+            
             for idx, (sub_adj, sub_feat, nodes_idx, all_nodes) in batch_data:
                 try:
                     # Convert to CSR and proper types
                     sub_adj = sub_adj.tocsr().astype(np.float32)
                     sub_feat = sub_feat.tocsr().astype(np.float32)
 
-                    # Extract CSR components
-                    A_data = sub_adj.data
-                    A_indices = sub_adj.indices
-                    A_indptr = sub_adj.indptr
-                    B_data = sub_feat.data
-                    B_indices = sub_feat.indices
-                    B_indptr = sub_feat.indptr
+                    # Calculate dimensions
+                    m, k = sub_adj.shape
+                    _, n = sub_feat.shape
+                    
+                    # Calculate grid dimensions based on output size
+                    block = (32, 32, 1)  # Fixed block size
+                    grid = (
+                        (n + block[0] - 1) // block[0],
+                        (m + block[1] - 1) // block[1]
+                    )
 
-                    # Allocate GPU memory in current context
+                    # Allocate output array
+                    result = np.zeros((m, n), dtype=np.float32)
+                    
+                    # Allocate GPU memory
                     gpu_ptrs = []
                     try:
-                        A_data_gpu = cuda.mem_alloc(A_data.nbytes)
-                        gpu_ptrs.append(A_data_gpu)
-                        A_indices_gpu = cuda.mem_alloc(A_indices.nbytes)
-                        gpu_ptrs.append(A_indices_gpu)
-                        A_indptr_gpu = cuda.mem_alloc(A_indptr.nbytes)
-                        gpu_ptrs.append(A_indptr_gpu)
-                        B_data_gpu = cuda.mem_alloc(B_data.nbytes)
-                        gpu_ptrs.append(B_data_gpu)
-                        B_indices_gpu = cuda.mem_alloc(B_indices.nbytes)
-                        gpu_ptrs.append(B_indices_gpu)
-                        B_indptr_gpu = cuda.mem_alloc(B_indptr.nbytes)
-                        gpu_ptrs.append(B_indptr_gpu)
+                        # Allocate with proper alignment
+                        A_data_gpu = cuda.mem_alloc(sub_adj.data.nbytes)
+                        A_indices_gpu = cuda.mem_alloc(sub_adj.indices.nbytes)
+                        A_indptr_gpu = cuda.mem_alloc(sub_adj.indptr.nbytes)
+                        B_data_gpu = cuda.mem_alloc(sub_feat.data.nbytes)
+                        B_indices_gpu = cuda.mem_alloc(sub_feat.indices.nbytes)
+                        B_indptr_gpu = cuda.mem_alloc(sub_feat.indptr.nbytes)
+                        C_gpu = cuda.mem_alloc(result.nbytes)
                         
-                        result_size = sub_adj.shape[0] * sub_feat.shape[1]
-                        C_gpu = cuda.mem_alloc(result_size * np.float32().itemsize)
-                        gpu_ptrs.append(C_gpu)
+                        gpu_ptrs.extend([A_data_gpu, A_indices_gpu, A_indptr_gpu,
+                                       B_data_gpu, B_indices_gpu, B_indptr_gpu, C_gpu])
 
-                        # Copy data to GPU in current context
-                        cuda.memcpy_htod(A_data_gpu, A_data)
-                        cuda.memcpy_htod(A_indices_gpu, A_indices)
-                        cuda.memcpy_htod(A_indptr_gpu, A_indptr)
-                        cuda.memcpy_htod(B_data_gpu, B_data)
-                        cuda.memcpy_htod(B_indices_gpu, B_indices)
-                        cuda.memcpy_htod(B_indptr_gpu, B_indptr)
+                        # Copy data to GPU
+                        cuda.memcpy_htod(A_data_gpu, sub_adj.data)
+                        cuda.memcpy_htod(A_indices_gpu, sub_adj.indices)
+                        cuda.memcpy_htod(A_indptr_gpu, sub_adj.indptr)
+                        cuda.memcpy_htod(B_data_gpu, sub_feat.data)
+                        cuda.memcpy_htod(B_indices_gpu, sub_feat.indices)
+                        cuda.memcpy_htod(B_indptr_gpu, sub_feat.indptr)
 
-                        # Calculate grid size
-                        grid_x = int(np.ceil(sub_feat.shape[1] / self.block[0]))
-                        grid_y = int(np.ceil(sub_adj.shape[0] / self.block[1]))
-                        grid = (grid_x, grid_y)
-
-                        # Add timing events
-                        start_event = cuda.Event()
-                        end_event = cuda.Event()
-                        
-                        start_event.record()
-                        
-                        # Launch kernel using current context's function handle
-                        self.kernel(
+                        # Launch kernel
+                        self.sparse_matmul_kernel(
                             A_data_gpu, A_indices_gpu, A_indptr_gpu,
                             B_data_gpu, B_indices_gpu, B_indptr_gpu,
-                            C_gpu, np.int32(sub_adj.shape[0]),
-                            np.int32(sub_adj.shape[1]),
-                            np.int32(sub_feat.shape[1]),
-                            block=self.block,
-                            grid=grid
+                            C_gpu, np.int32(m), np.int32(k), np.int32(n),
+                            block=block, grid=grid
                         )
-                        
-                        end_event.record()
-                        end_event.synchronize()
-                        kernel_time = start_event.time_till(end_event)
+                        cuda.Context.synchronize()
 
-                        # Get result in current context
-                        result = np.empty((sub_adj.shape[0], sub_feat.shape[1]), dtype=np.float32)
+                        # Copy result back
                         cuda.memcpy_dtoh(result, C_gpu)
                         
-                        # Include timing in results tuple
-                        results.append((idx, result[:len(nodes_idx)], nodes_idx, kernel_time))
+                        results.append((idx, result[:len(nodes_idx)], nodes_idx, 0.0))
 
                     finally:
-                        # Clean up GPU memory in current context
+                        # Clean up GPU memory
                         for ptr in gpu_ptrs:
                             ptr.free()
 
                 except cuda.Error as e:
                     print(f"CUDA error in batch item {idx}: {e}")
                     continue
-            
+
             return results
-            
+
         except Exception as e:
             print(f"Error in process_batch: {e}")
             return []
-        finally:
-            if self.ctx:
-                self.ctx.pop()
-                self.ctx = None
-                self.kernel = None
-                self.mod = None
 
     def process_clusters(self, cluster_data):
         """Process clusters with improved error handling"""
@@ -497,6 +539,9 @@ class GPUPipeline:
 
 if __name__ == '__main__':
     cuda.init()
+    results = []  # Initialize results list
+    pipeline = None  # Initialize pipeline to None
+    
     try:
         # Initialize kernel manager first
         kernel_manager = CUDAKernelManager.get_instance()
@@ -507,8 +552,6 @@ if __name__ == '__main__':
             raise
 
         # Run tests and collect results
-        results = []
-        
         for graph_info in graphs:
             index = graph_info["index"]
             name = graph_info["name"]
@@ -550,26 +593,25 @@ if __name__ == '__main__':
             batch_size = total_threads // threads_per_edge
 
             try:
-                # Time the decomposition phase separately
+                # Time the decomposition phase
                 decomp_start = time.perf_counter()
+                clusters = None  # Initialize clusters to None
                 
-                # Define the number of clusters - more conservative estimate
-                avg_cluster_size = max(int(np.sqrt(num_nodes)), batch_size)  # Increased minimum size
-                num_clusters = max(2, num_nodes // avg_cluster_size)  # Added upper limit
-                
-                print(f"Decomposing graph into {num_clusters} clusters")
                 try:
-                    # Try GPU-based clustering first
-                    clusters = create_clusters_metis_bfs_gpu(adjacency_matrix, num_clusters)
+                    # Try GPU-based clustering
+                    clusters = create_clusters_metis_bfs_gpu(adjacency_matrix, kernel_manager, feature_matrix)
                 except Exception as e:
-                    print(f"GPU clustering failed: {e}")
-                    print("Falling back to CPU-based spectral clustering")
+                    print(f"GPU clustering failed: {e} Need to fix partitioning method")
+                    continue  # Skip to next graph on clustering failure
+                
+                if not clusters:
+                    print("No clusters created, skipping graph")
+                    continue
 
-                t1 = time.perf_counter() - decomp_start
                 previous_time = time.perf_counter()
                 print(f"Decomposition Time elapsed: { previous_time - decomp_start:.4f} seconds")
+                t1 = previous_time - decomp_start
 
-                
                 if not clusters:
                     raise RuntimeError("Failed to create clusters")
                     
@@ -581,14 +623,13 @@ if __name__ == '__main__':
                     
                 print(f"Extracting {len(clusters)} clusters")
                 # Prepare cluster data
-
                 # Use vectorized extraction
                 cluster_data = vectorized_extract_submatrices(
                     adjacency_matrix,
                     feature_matrix,
                     clusters
                 )
-                
+
                 t2 = time.perf_counter() - previous_time
                 print(f"Cluster Extraction Time elapsed: { time.perf_counter() - previous_time:.4f} seconds")
                 previous_time = time.perf_counter()
@@ -608,9 +649,9 @@ if __name__ == '__main__':
 
                 # display time elapsed
                 previous_time = time.perf_counter()
-                print(f"PipelineTime elapsed: { previous_time - start_time:.4f} seconds")
                 t3 = previous_time - start_time
-
+                print(f"PipelineTime elapsed: { previous_time - start_time:.4f} seconds")
+                
                 # Combine results with proper error handling
                 result = np.zeros((num_nodes, feature_matrix.shape[1]), dtype=np.float32)
                 node_counts = np.zeros(num_nodes, dtype=np.int32)
@@ -638,7 +679,6 @@ if __name__ == '__main__':
                 result[mask] = result[mask] / node_counts[mask, np.newaxis]
 
                 t4 = time.perf_counter() - previous_time
-                
                 print(f"Merge Time elapsed: { time.perf_counter() - previous_time:.4f} seconds")
                 previous_time = time.perf_counter()
 
@@ -665,7 +705,7 @@ if __name__ == '__main__':
                         "graph_index": index,
                         "graph_name": name,
                         "graph_type": graph_type,
-                        "method": "pycuda_sparse_simplified_02",
+                        "method": "pycuda_sparse_simplified_05",
                         "decomposition_time": decomp_time,
                         "multiplication_time": end_time,
                         'decomp': t1,
@@ -679,20 +719,6 @@ if __name__ == '__main__':
                         "is_correct": is_correct
                     })
 
-                                        # Modified second append to include total time
-                    results.append({
-                        "graph_index": index,
-                        "graph_name": name,
-                        "graph_type": graph_type,
-                        "method": "verify_time_cpu_sparse",
-                        "decomposition_time": 0,  # Set to 0 since we're using total time
-                        "multiplication_time": end_time_cpu, # Add decomp_time and mult_time
-                        "num_clusters": len(clusters),
-                        "date": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        "num_nodes": num_nodes,
-                        "sparsity": sparsity,
-                        "is_correct": is_correct
-                    })
 
             except cuda.LaunchError as e:
                 print(f"CUDA launch failed: {e}")
@@ -705,48 +731,55 @@ if __name__ == '__main__':
             finally:
                 if pipeline:
                     pipeline.cleanup()
-                
+                    pipeline = None  # Reset pipeline
+        
     except Exception as e:
         print(f"Fatal error: {e}")
     finally:
+        if pipeline:
+            pipeline.cleanup()
         if kernel_manager and kernel_manager.context:
             try:
                 kernel_manager.cleanup()
             except:
                 pass
-
-    import os
-
-    # Load existing results or create a new one
-    if os.path.exists("gnn_results.json"):
-        with open("gnn_results.json", "r") as f:
+        
+        # Save results only if we have any
+        if results:
             try:
-                all_results = json.load(f)
-            except json.JSONDecodeError:
-                # Initialize as an empty list if the file is empty or corrupted
-                all_results = []
-    else:
-        all_results = []
+                # Load existing results or create new ones
+                if os.path.exists("gnn_results.json"):
+                    with open("gnn_results.json", "r") as f:
+                        try:
+                            all_results = json.load(f)
+                        except json.JSONDecodeError:
+                            all_results = []
+                else:
+                    all_results = []
 
-    # Update results by replacing existing ones by graph index and method
-    for result in results:
-        # Check if the result already exists in the list
-        if any(
-            r["graph_index"] == result["graph_index"] and r["method"] == result["method"]
-            for r in all_results
-        ):
-            # If so, replace the existing result
-            all_results = [
-                r
-                for r in all_results
-                if not (
-                    r["graph_index"] == result["graph_index"]
-                    and r["method"] == result["method"]
-                )
-            ]
-            all_results.append(result)
-        else:
-            all_results.append(result)
+                # Update results
+                for result in results:
+                    # Check if the result already exists in the list
+                    if any(
+                        r["graph_index"] == result["graph_index"] and r["method"] == result["method"]
+                        for r in all_results
+                    ):
+                        # If so, replace the existing result
+                        all_results = [
+                            r
+                            for r in all_results
+                            if not (
+                                r["graph_index"] == result["graph_index"]
+                                and r["method"] == result["method"]
+                            )
+                        ]
+                        all_results.append(result)
+                    else:
+                        all_results.append(result)
 
-    # Save results
-    with open("gnn_results.json", "w") as f:    json.dump(all_results, f, indent=4)# Print confirmationprint("Results have been saved to 'gnn_results.json'.")
+                # Save results
+                with open("gnn_results.json", "w") as f:
+                    json.dump(all_results, f, indent=4)
+                print("Results have been saved to 'gnn_results.json'.")
+            except Exception as e:
+                print(f"Error saving results: {e}")
