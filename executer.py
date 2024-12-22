@@ -1,5 +1,4 @@
 import argparse
-import collections.abc
 import importlib
 import json
 import pickle
@@ -7,101 +6,85 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-import scipy.sparse as sp
+import networkx as nx
 
 from utils.verification import verify_result
 
+results_path = Path("results") / "results.json"
 
-def update_dict(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = update_dict(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
+if __name__ == "__main__":
+    # Get all available methods
+    methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
 
+    # Add command line argument parsing
+    parser = argparse.ArgumentParser(description="Run GNN experiments with CuPy sparse matrices")
+    parser.add_argument("--method", "-m", type=str, choices=methods, help="Method to run", required=True)
+    parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
+    parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmup runs")
+    parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
+    args = parser.parse_args()
 
-methods = [
-    "chatgpt_cupy_sparse",
-    "chatgpt_pycuda_decomposed",
-    "chatgpt_pycuda_dense",
-    "chatgpt_pycuda_sparse",
-    "chatgpt_pytorch_dense",
-    "chatgpt_pytorch_sparse",
-    "claude_pycuda_sparse_csr_csc",
-    "claude_pycuda_sparse_instrumented",
-    "claude_pycuda_sparse_tiled",
-    "claude_pycuda_sparse_tiled_coalesced",
-    "claude_pycuda_sparse",
-]
+    # import chosen method
+    method = importlib.import_module(f"scripts.{args.method}")
 
-# Add command line argument parsing
-parser = argparse.ArgumentParser(description="Run GNN experiments with CuPy sparse matrices")
-parser.add_argument("--method", type=str, default="claude_pycuda_sparse", choices=methods, help="Method to run")
-parser.add_argument("--verify", default=False, action="store_true", help="Enable profiling")
-parser.add_argument("--warmup", type=int, default=1, help="Number of warmup runs")
-parser.add_argument("--test-runs", type=int, default=1, help="Number of test runs for timing")
-parser.add_argument("--graphs", type=str, default=None, help="Index pattern of graphs to process")
-args = parser.parse_args()
+    # Load graphs
+    graphs = []
+    graph_indices = "*" if args.graphs is None or args.graphs == "all" else f"[{args.graphs}]"
+    for graph_file in Path("graphs").glob(f"graph_{graph_indices}.pkl"):
+        with open(graph_file, "rb") as f:
+            graphs.append(pickle.load(f))
 
-# import chosen method
-method = importlib.import_module(f"scripts.{args.method}")
+    results = defaultdict(dict)
+    for graph_info in graphs:
+        graph_idx = graph_info["index"]
+        graph_name = graph_info["name"]
+        graph_type = graph_info["type"]
+        graph = graph_info["graph"]
+        feature_matrix = graph_info["feature_matrix"]
+        num_nodes = graph_info["num_nodes"]
+        sparsity = graph_info["sparsity"]
 
-# Load graphs
-graphs = []
-graph_indices = "*" if args.graphs is None else f"[{args.graphs}]"
-for graph_file in Path("graphs").glob(f"graph_{graph_indices}.pkl"):
-    with open(graph_file, "rb") as f:
-        graphs.append(pickle.load(f))
+        print(f"Testing graph {graph_idx}...")
 
-results = defaultdict(dict)
-for graph_info in graphs:
-    index = graph_info["index"]
-    name = graph_info["name"]
-    graph_type = graph_info["type"]
-    graph = graph_info["graph"]
-    feature_matrix = graph_info["feature_matrix"]
-    num_nodes = graph_info["num_nodes"]
-    sparsity = graph_info["sparsity"]
+        # Execute the method
+        result = method.execute(graph_info, num_warmup=args.warmup)
 
-    print(f"Testing graph {index}...")
+        # Verify the result
+        is_correct = None
+        if args.verify:
+            adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=float)
+            is_correct = bool(verify_result(result, adjacency_matrix, feature_matrix))
+            print(f"Verification: {'Correct' if is_correct else 'Incorrect'}")
 
-    # Execute the method
-    result, mean_time, std_time = method.execute(graph_info, num_warmup=args.warmup, num_runs=args.test_runs)
+        results[args.method][graph_idx] = {
+            "graph_name": graph_name,
+            "graph_type": graph_type,
+            "method": args.method,
+            "date": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "num_nodes": num_nodes,
+            "sparsity": sparsity,
+            "is_correct": is_correct,
+        }
 
-    # Verify the result
-    is_correct = True  # Assume correct by default
-    if args.verify:
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=float)
-        is_correct = verify_result(result, adjacency_matrix, feature_matrix)
+        print(f"Processing completed successfully.\n")
 
-    print(f"Processing completed successfully.")
+    if not results_path.exists():
+        prev_results = {}
+    else:
+        with open(results_path, "r") as f:
+            try:
+                prev_results = json.load(f)
+            except json.JSONDecodeError:
+                prev_results = {}
 
-    results[args.method][index] = {
-        "graph_index": index,
-        "graph_name": name,
-        "graph_type": graph_type,
-        "method": args.method,
-        "time_seconds": mean_time / 1000.0,  # Convert ms to seconds
-        "time_std": std_time / 1000.0,
-        "date": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "num_nodes": num_nodes,
-        "sparsity": sparsity,
-        "is_correct": is_correct,
-    }
+    for method, report in results.items():
+        prev_results[method] = prev_results.get(method, {})
+        for graph_idx, result in report.items():
+            if "metrics" in prev_results[method].get(graph_idx, {}):
+                result["metrics"] = prev_results[method][graph_idx]["metrics"]
+            prev_results[method][graph_idx] = result
 
-if not Path("gnn_results.json").exists():
-    prev_results = {}
-else:
-    with open("gnn_results.json", "r") as f:
-        try:
-            prev_results = json.load(f)
-        except json.JSONDecodeError:
-            prev_results = {}
+    with open(results_path, "w") as f:
+        json.dump(prev_results, f, indent=4)
 
-update_dict(prev_results, results)
-
-with open("gnn_results.json", "w") as f:
-    json.dump(prev_results, f, indent=4)
-
-print("\nResults have been saved to 'gnn_results.json'.")
+    print("Results have been saved to 'results.json'.")

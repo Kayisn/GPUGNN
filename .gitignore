@@ -1,13 +1,10 @@
 __pycache__/
-venv/
-.vscode
+.venv/
+.vscode/
+
+graphs/*
 plots/*
 reports/*
-!.gitkeep
+results/*
 
-sadie_sparse.py
-profile_report.nsys-rep
-output_file.exp
-output_file.lib
-gnn_test_graph_with_features.pkl
-gnn_test_graphs_with_features.pkl
+!.gitkeep

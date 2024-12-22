@@ -1,11 +1,14 @@
 import math
+from pathlib import Path
 
+import networkx as nx
 import numpy as np
 import nvtx
 import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
-from pycuda.compiler import SourceModule
+
+from utils.cuda_helper import load_gpu_func
 
 
 class HierarchicalDecomposition:
@@ -75,7 +78,7 @@ def decompose_graph(adjacency_matrix, feature_matrix, max_size):
 
 
 # Define the PyCUDA-based sparse matrix multiplication method
-def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
+def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
     # Ensure A and B are in CSR format
     A_csr = A.tocsr().astype(np.float32)
     B_csr = B.tocsr().astype(np.float32)
@@ -93,96 +96,34 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
     stream = cuda.Stream()
 
     try:
-        with nvtx.annotate(f"prepare {index}", domain="chatgpt_pycuda_decomposed"):
-            # Allocate GPU memory
-            A_data_gpu = cuda.mem_alloc(A_data.nbytes)
-            A_indices_gpu = cuda.mem_alloc(A_indices.nbytes)
-            A_indptr_gpu = cuda.mem_alloc(A_indptr.nbytes)
-            B_data_gpu = cuda.mem_alloc(B_data.nbytes)
-            B_indices_gpu = cuda.mem_alloc(B_indices.nbytes)
-            B_indptr_gpu = cuda.mem_alloc(B_indptr.nbytes)
-            C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csr.shape[1] * np.float32().itemsize)
+        # Allocate GPU memory
+        A_data_gpu = cuda.mem_alloc(A_data.nbytes)
+        A_indices_gpu = cuda.mem_alloc(A_indices.nbytes)
+        A_indptr_gpu = cuda.mem_alloc(A_indptr.nbytes)
+        B_data_gpu = cuda.mem_alloc(B_data.nbytes)
+        B_indices_gpu = cuda.mem_alloc(B_indices.nbytes)
+        B_indptr_gpu = cuda.mem_alloc(B_indptr.nbytes)
+        C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csr.shape[1] * np.float32().itemsize)
 
-            # Safe memory transfer
-            cuda.memcpy_htod(A_data_gpu, A_data)
-            cuda.memcpy_htod(A_indices_gpu, A_indices)
-            cuda.memcpy_htod(A_indptr_gpu, A_indptr)
-            cuda.memcpy_htod(B_data_gpu, B_data)
-            cuda.memcpy_htod(B_indices_gpu, B_indices)
-            cuda.memcpy_htod(B_indptr_gpu, B_indptr)
+        # Safe memory transfer
+        cuda.memcpy_htod(A_data_gpu, A_data)
+        cuda.memcpy_htod(A_indices_gpu, A_indices)
+        cuda.memcpy_htod(A_indptr_gpu, A_indptr)
+        cuda.memcpy_htod(B_data_gpu, B_data)
+        cuda.memcpy_htod(B_indices_gpu, B_indices)
+        cuda.memcpy_htod(B_indptr_gpu, B_indptr)
 
-            # Optimized CUDA kernel with binary search and shared memory
-            mod = SourceModule(
-                """
-            __device__ inline int binary_search(const int* array, int left, int right, int target) {
-                while (left <= right) {
-                    int mid = (left + right) >> 1;
-                    if (array[mid] == target) return mid;
-                    if (array[mid] < target) left = mid + 1;
-                    else right = mid - 1;
-                }
-                return -1;
-            }
+        # Optimized CUDA kernel with binary search and shared memory
+        sparse_matmul = load_gpu_func("sparse_matmul_decomp")
+        block_size = (32, 32, 1)  # Optimized block size
+        grid_size = (
+            int(np.ceil(B_csr.shape[1] / 32)),
+            int(np.ceil(A_csr.shape[0] / 32)),
+            1,
+        )
 
-            __global__ void sparse_matmul(const float* __restrict__ A_data,
-                                        const int* __restrict__ A_indices,
-                                        const int* __restrict__ A_indptr,
-                                        const float* __restrict__ B_data,
-                                        const int* __restrict__ B_indices,
-                                        const int* __restrict__ B_indptr,
-                                        float* __restrict__ C,
-                                        const int num_rows,
-                                        const int num_cols,
-                                        const int num_cols_B) {
-                __shared__ float shared_sum[32][32];
-                
-                const int row = blockIdx.y * 32 + threadIdx.y;
-                const int col = blockIdx.x * 32 + threadIdx.x;
-                
-                if (row < num_rows && col < num_cols_B) {
-                    float sum = 0.0f;
-                    const int row_start = A_indptr[row];
-                    const int row_end = A_indptr[row + 1];
-                    
-                    #pragma unroll 4
-                    for (int idx = row_start; idx < row_end; ++idx) {
-                        const int k = A_indices[idx];
-                        const float a_val = A_data[idx];
-                        const int col_start = B_indptr[k];
-                        const int col_end = B_indptr[k + 1];
-                        
-                        const int pos = binary_search(B_indices, col_start, col_end - 1, col);
-                        if (pos != -1) {
-                            sum += a_val * B_data[pos];
-                        }
-                    }
-                    
-                    shared_sum[threadIdx.y][threadIdx.x] = sum;
-                    __syncthreads();
-                    
-                    if (threadIdx.x == 0) {
-                        float final_sum = 0.0f;
-                        #pragma unroll
-                        for (int i = 0; i < 32; ++i) {
-                            final_sum += shared_sum[threadIdx.y][i];
-                        }
-                        C[row * num_cols_B + col] = final_sum;
-                    }
-                }
-            }
-            """
-            )
-
-            sparse_matmul = mod.get_function("sparse_matmul")
-            block_size = (32, 32, 1)  # Optimized block size
-            grid_size = (
-                int(np.ceil(B_csr.shape[1] / 32)),
-                int(np.ceil(A_csr.shape[0] / 32)),
-                1,
-            )
-
-        # Warmup runs
-        with nvtx.annotate(f"warmup {index}", domain="chatgpt_pycuda_decomposed"):
+        # Warmup
+        with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
             for _ in range(num_warmup):
                 sparse_matmul(
                     A_data_gpu,
@@ -201,39 +142,30 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup=2, num_test_runs=5):
                 )
                 stream.synchronize()
 
-        # Actual test runs with timing
-        with nvtx.annotate(f"main {index}", domain="chatgpt_pycuda_decomposed"):
-            times = []
-            for _ in range(num_test_runs):
-                start = cuda.Event()
-                end = cuda.Event()
-
-                start.record(stream)
-                sparse_matmul(
-                    A_data_gpu,
-                    A_indices_gpu,
-                    A_indptr_gpu,
-                    B_data_gpu,
-                    B_indices_gpu,
-                    B_indptr_gpu,
-                    C_gpu,
-                    np.int32(A_csr.shape[0]),
-                    np.int32(A_csr.shape[1]),
-                    np.int32(B_csr.shape[1]),
-                    block=block_size,
-                    grid=grid_size,
-                    stream=stream,
-                )
-                end.record(stream)
-                end.synchronize()
-
-                times.append(start.time_till(end))
+        # Main
+        with nvtx.annotate(f"main {index}", domain=Path(__file__).stem):
+            sparse_matmul(
+                A_data_gpu,
+                A_indices_gpu,
+                A_indptr_gpu,
+                B_data_gpu,
+                B_indices_gpu,
+                B_indptr_gpu,
+                C_gpu,
+                np.int32(A_csr.shape[0]),
+                np.int32(A_csr.shape[1]),
+                np.int32(B_csr.shape[1]),
+                block=block_size,
+                grid=grid_size,
+                stream=stream,
+            )
+            stream.synchronize()
 
         # Safe memory transfer back
         C_dense = np.empty((A_csr.shape[0], B_csr.shape[1]), dtype=np.float32)
         cuda.memcpy_dtoh(C_dense, C_gpu)
 
-        return C_dense, np.mean(times), np.std(times)
+        return C_dense
     finally:
         # Ensure GPU memory is always freed
         try:
@@ -266,20 +198,16 @@ def reorder_matrix_by_clusters(adjacency_matrix, feature_matrix, cluster_batch):
     return adj_reordered, feat_reordered, reverse_order
 
 
-def execute(graph_info, num_warmup=1, num_runs=1):
+def execute(graph_info, num_warmup=1):
     index = graph_info["index"]
     graph = graph_info["graph"]
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    num_nodes = graph_info["num_nodes"]
     context = cuda.Device(0).make_context()
-    try:
-        # Create adjacency matrix
-        adjacency_matrix = sp.lil_matrix((num_nodes, num_nodes), dtype=np.float32)
-        for node in graph.nodes:
-            for neighbor in graph.neighbors(node):
-                adjacency_matrix[node, neighbor] = 1.0
-        adjacency_matrix = adjacency_matrix.tocsr()
 
+    # Create adjacency matrix
+    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
+
+    try:
         # Debug prints
         print(f"Matrix sizes - Adjacency: {adjacency_matrix.shape}, Features: {feature_matrix.shape}")
         print(f"Non-zero elements - Adjacency: {adjacency_matrix.nnz}, Features: {feature_matrix.nnz}")
@@ -298,13 +226,8 @@ def execute(graph_info, num_warmup=1, num_runs=1):
             adjacency_matrix, feature_matrix, cluster_batch
         )
 
-        # Execute computation
-        result, mean_time, std_time = sparse_matrix_multiply_pycuda(
-            adj_reordered, feat_reordered, index, num_warmup=2, num_test_runs=5
-        )
-
         # Restore original ordering
-        return result[reverse_order], mean_time, std_time
+        return sparse_matrix_multiply_pycuda(adj_reordered, feat_reordered, index, num_warmup)[reverse_order]
     except Exception as e:
         print(f"Error processing graph: {e}")
     finally:
