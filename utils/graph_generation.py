@@ -120,7 +120,7 @@ if __name__ == "__main__":
     sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9]
     number_of_features = 10
     g_type = "both"
-    output_directory = Path("graphs")
+    output_directory = Path("graphs") / "synthetic"
 
     # Generate all graphs
     print("Generating synthetic graphs...")

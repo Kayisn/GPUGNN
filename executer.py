@@ -1,4 +1,6 @@
 import argparse
+import csv
+import gzip
 import importlib
 import json
 import pickle
@@ -9,12 +11,15 @@ from pathlib import Path
 import networkx as nx
 import numpy as np
 import scipy.io
+import scipy.sparse as sp
 
 from utils.verification import verify_result
 
 graph_dir = Path("graphs")
+snap_dir = graph_dir / "snap"
+synthetic_dir = graph_dir / "synthetic"
+ssmatrices_dir = graph_dir / "ssmatrices"
 results_path = Path("results") / "results.json"
-ssmatrices_dir = Path("ssmatrices")
 
 
 def module_from_file(file_path: Path):
@@ -26,17 +31,25 @@ def module_from_file(file_path: Path):
 
 def parse_graph_indices(graphs_pattern):
     if graphs_pattern == "all":
-        return graph_dir.glob("graph_*.pkl")
+        return synthetic_dir.glob("graph_*.pkl")
     if "," in graphs_pattern:
-        return [graph_dir / f"graph_{i}.pkl" for i in graphs_pattern.split(",")]
+        return [synthetic_dir / f"graph_{i}.pkl" for i in graphs_pattern.split(",")]
     if "-" in graphs_pattern:
         start, end = map(int, graphs_pattern.split("-"))
-        return [graph_dir / f"graph_{i}.pkl" for i in range(start, end + 1)]
-    return [graph_dir / f"graph_{graphs_pattern}.pkl"]
+        return [synthetic_dir / f"graph_{i}.pkl" for i in range(start, end + 1)]
+    return [synthetic_dir / f"graph_{graphs_pattern}.pkl"]
 
 
 def parse_matrices_indices(matrices_pattern):
     matrices = ssmatrices_dir.glob("*.mtx")
+    if matrices_pattern != "all":
+        for pattern in matrices_pattern.split(","):
+            matrices = filter(lambda m: pattern in m.stem, matrices)
+    return matrices
+
+
+def parse_snap_indices(matrices_pattern):
+    matrices = snap_dir.glob("*.gz")
     if matrices_pattern != "all":
         for pattern in matrices_pattern.split(","):
             matrices = filter(lambda m: pattern in m.stem, matrices)
@@ -49,42 +62,71 @@ if __name__ == "__main__":
     parser.add_argument("--method", "-m", type=str, help="Path of the method to run", required=True)
     parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
     parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmup runs")
-    parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
-    parser.add_argument("--matrices", "-s", type=str, default=None, help="Index pattern of matrices to process")
+    parser.add_argument(
+        "--synthetic", "-sp", type=str, default=None, help="Index pattern of synthetic graphs to process"
+    )
+    parser.add_argument(
+        "--ssmatrices", "-mp", type=str, default=None, help="Name pattern of SuiteSparse matrices to process"
+    )
+    parser.add_argument("--snap", "-np", type=str, default=None, help="Name pattern of SNAP networks to process")
     args = parser.parse_args()
 
-    if not args.graphs and not args.matrices:
-        parser.error("At least one of --graphs or --matrices must be provided.")
+    if not args.synthetic and not args.ssmatrices and not args.snap:
+        parser.error("At least one of the following arguments must be provided: --synthetic, --ssmatrices, --snap")
 
     # import chosen method
     method = module_from_file(Path(args.method))
 
     # Load graphs or matrices
     data = []
-    if args.graphs:
+
+    if args.synthetic:
         print(f"Loading graphs...")
-        for graph_file in parse_graph_indices(args.graphs):
+        for graph_file in parse_graph_indices(args.synthetic):
             with open(graph_file, "rb") as f:
                 data.append(pickle.load(f))
 
-    if args.matrices:
+    if args.ssmatrices:
         print(f"Loading matrices...")
-        for matrix_file in parse_matrices_indices(args.matrices):
-            with open(matrix_file, "rb") as f:
-                matrix = scipy.io.mmread(f).astype(np.float32)
-                num_nodes = matrix.shape[0]
-                sparsity = 1 - (matrix.nnz / (num_nodes**2))
-                data.append(
-                    {
-                        "index": matrix_file.stem,
-                        "name": f"{num_nodes}_p_{sparsity:.2f}_{matrix_file.stem}",
-                        "type": "matrix",
-                        "graph": nx.from_scipy_sparse_array(matrix),
-                        "feature_matrix": matrix,
-                        "num_nodes": num_nodes,
-                        "sparsity": sparsity,
-                    }
+        for matrix_file in parse_matrices_indices(args.ssmatrices):
+            matrix = scipy.io.mmread(matrix_file).astype(np.float32)
+            num_nodes = matrix.shape[0]
+            sparsity = 1 - (matrix.nnz / (num_nodes**2))
+            data.append(
+                {
+                    "index": matrix_file.stem,
+                    "name": f"{num_nodes}_p_{sparsity:.2f}_{matrix_file.stem}",
+                    "type": "matrix",
+                    "graph": nx.from_scipy_sparse_array(matrix),
+                    "feature_matrix": matrix,
+                    "num_nodes": num_nodes,
+                    "sparsity": sparsity,
+                }
+            )
+
+    if args.snap:
+        print(f"Loading SNAP networks...")
+        for snap_file in parse_snap_indices(args.snap):
+            if ".txt" in snap_file.suffixes:
+                graph = nx.read_edgelist(snap_file, nodetype=int)
+            elif ".csv" in snap_file.suffixes:
+                graph = nx.read_edgelist(
+                    snap_file, delimiter=",", nodetype=int, data=(("source", int), ("target", int))
                 )
+
+            num_nodes = graph.number_of_nodes()
+            sparsity = 1 - (graph.number_of_edges() / (num_nodes**2))
+            data.append(
+                {
+                    "index": snap_file.stem,
+                    "name": f"{num_nodes}_p_{sparsity:.2f}_{snap_file.stem}",
+                    "type": "snap",
+                    "graph": graph,
+                    "feature_matrix": sp.identity(num_nodes, format="csr", dtype=np.float32),
+                    "num_nodes": num_nodes,
+                    "sparsity": sparsity,
+                }
+            )
 
     results = defaultdict(dict)
     for item in data:

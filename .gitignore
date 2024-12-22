@@ -2,7 +2,7 @@ __pycache__/
 .venv/
 .vscode/
 
-graphs/*
+graphs/synthetic/*
 plots/*
 reports/*
 results/*

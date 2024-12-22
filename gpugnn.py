@@ -15,8 +15,11 @@ parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmu
 parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
 parser.add_argument("--profile", default=False, action="store_true", help="Enable profiling")
 parser.add_argument("--nvtx", "-n", type=str, default="main", help="Comma-separated list of NVTX ranges to profile")
-parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
-parser.add_argument("--matrices", "-s", type=str, default=None, help="Index pattern of matrices to process")
+parser.add_argument("--synthetic", "-sp", type=str, default=None, help="Index pattern of synthetic graphs to process")
+parser.add_argument(
+    "--ssmatrices", "-mp", type=str, default=None, help="Name pattern of SuiteSparse matrices to process"
+)
+parser.add_argument("--snap", "-np", type=str, default=None, help="Name pattern of SNAP networks to process")
 args = parser.parse_args()
 
 if args.profile:
@@ -33,6 +36,7 @@ if args.profile:
 
 # List of methods to run
 methods = [path for path in Path("scripts").rglob("*.py") if path.stem != "__init__"]
+method_names = [method.stem for method in methods]
 
 if args.methods != "all":
     methods = filter(lambda method: args.methods in method.stem, methods)
@@ -48,13 +52,16 @@ if args.profile:
     report_dir.mkdir(exist_ok=True)
 
 # Run each script sequentially
+graphs = " ".join(
+    f"--{name} {value}" for name, value in vars(args).items() if name in ["synthetic", "ssmatrices", "snap"] and value
+)
 for method in methods:
-    cmd = f"python executer.py --method {method} --warmup {args.warmup} {'--graphs ' + args.graphs if args.graphs else ''} {'--matrices ' + args.matrices if args.matrices else ''} {'--verify' if args.verify else ''}"
+    cmd = f"python executer.py --method {method} --warmup {args.warmup} {graphs} {'--verify' if args.verify else ''}"
 
     try:
         if args.profile:
-            print(f"Profiling {method}...")
-            nvtx_patterns = [f'"regex:{method}@{nvtx}*/"' for nvtx in args.nvtx.split(",")]
+            print(f"Profiling {method.stem}...")
+            nvtx_patterns = [f'"regex:{method.stem}@{nvtx}*/"' for nvtx in args.nvtx.split(",")]
             nvtx_include = "--nvtx-include " + " --nvtx-include ".join(nvtx_patterns)
             metrics = [
                 "gpu__time_duration_measured_wallclock",  # The wall-clock time duration.
@@ -73,20 +80,20 @@ for method in methods:
                 "idc__request_hit_rate",  # Hit rate for intermediate data cache (IDC). Useful for understanding performance of inter-thread data sharing.
             ]
             subprocess.check_call(
-                f"ncu --nvtx --metrics {','.join(metrics)} {nvtx_include} -f -o {str(report_dir / f'report_{method}')} {cmd}",
+                f"ncu --nvtx --metrics {','.join(metrics)} {nvtx_include} -f -o {str(report_dir / f'report_{method.stem}')} {cmd}",
                 stderr=subprocess.STDOUT,
                 shell=True,
             )
-            print(f"Completed profiling {method}.")
+            print(f"Completed profiling {method.stem}.")
         else:
-            print(f"Running {method}...")
+            print(f"Running {method.stem}...")
             subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-            print(f"Completed running {method}.\n")
+            print(f"Completed running {method.stem}.\n")
     except subprocess.CalledProcessError as e:
-        print(f"Error running {method}. Exit code: {e.returncode}")
+        print(f"Error running {method.stem}. Exit code: {e.returncode}")
         exit(1)
 
-    if args.profile and (report_dir / f"report_{method}.ncu-rep").exists():
+    if args.profile and (report_dir / f"report_{method.stem}.ncu-rep").exists():
         """
         What's happening here?
 
@@ -175,19 +182,21 @@ for method in methods:
         metrics = defaultdict(
             lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {"values": [], "unit": ""})))
         )
-        report = ncu_report.load_report(report_dir / f"report_{method}.ncu-rep")
+        report = ncu_report.load_report(report_dir / f"report_{method.stem}.ncu-rep")
         for rng_id in range(report.num_ranges()):
             rng = report.range_by_idx(rng_id)
             for action_id in range(rng.num_actions()):
+                print(f"Processing action {action_id}...")
                 action = rng.action_by_idx(action_id)
                 nvtx_state = action.nvtx_state()
                 for domain_id in nvtx_state.domains():
+                    print(f"Processing domain {domain_id}...")
                     domain = nvtx_state.domain_by_id(domain_id)
-                    if domain.name() in methods:
+                    if domain.name() in method_names:
                         method = domain.name()
                         for nvtx_section in domain.push_pop_ranges():
-                            nvtx_range = re.search(r"[A-Za-z]+", nvtx_section).group()
-                            graph_idx = re.search(r"\d+", nvtx_section).group()
+                            print(f"Processing NVTX range {nvtx_section}...")
+                            nvtx_range, graph_idx = nvtx_section.split()
                             for metric in all_metrics.keys():
                                 if metric_data := action.metric_by_name(metric):
                                     if metric_data.value() is not None:
@@ -221,8 +230,11 @@ for method in methods:
 
                     # metrics computed manually
                     results[method][graph_idx]["metrics"][nvtx_range]["active_cycles_ratio"] = {
-                        "value": results[method][graph_idx]["metrics"][nvtx_range]["cycles_active"]["value"]
-                        / results[method][graph_idx]["metrics"][nvtx_range]["cycles_elapsed"]["value"],
+                        "value": (
+                            results[method][graph_idx]["metrics"][nvtx_range]["cycles_active"]["value"]
+                            / results[method][graph_idx]["metrics"][nvtx_range]["cycles_elapsed"]["value"]
+                        )
+                        * 100,
                         "unit": "%",
                     }
                     results[method][graph_idx]["metrics"][nvtx_range]["dram_throughput"] = {
@@ -231,11 +243,14 @@ for method in methods:
                         "unit": "B/s",
                     }
                     results[method][graph_idx]["metrics"][nvtx_range]["l1tex_hit_rate"] = {
-                        "value": results[method][graph_idx]["metrics"][nvtx_range]["l1tex_bytes_lookup_hit"]["value"]
-                        / (
+                        "value": (
                             results[method][graph_idx]["metrics"][nvtx_range]["l1tex_bytes_lookup_hit"]["value"]
-                            + results[method][graph_idx]["metrics"][nvtx_range]["l1tex_bytes_lookup_miss"]["value"]
-                        ),
+                            / (
+                                results[method][graph_idx]["metrics"][nvtx_range]["l1tex_bytes_lookup_hit"]["value"]
+                                + results[method][graph_idx]["metrics"][nvtx_range]["l1tex_bytes_lookup_miss"]["value"]
+                            )
+                        )
+                        * 100,
                         "unit": "%",
                     }
 
