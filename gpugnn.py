@@ -31,18 +31,15 @@ if args.profile:
     import ncu_report
 
 # List of methods to run
-methods = all_methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
+methods = [path for path in Path("scripts").rglob("*.py") if path.stem != "__init__"]
 
 if args.methods != "all":
-    methods = []
-    for method in args.methods.split(","):
-        methods.extend(method for method in all_methods if args.methods in method)
+    methods = filter(lambda method: args.methods in method.stem, methods)
 
 if args.list_methods:
     print("Available methods:")
-    print("\n".join(methods))
+    print("\n".join(m.stem for m in methods))
     exit()
-
 
 results_path = Path("results") / "results.json"
 report_dir = Path("reports")

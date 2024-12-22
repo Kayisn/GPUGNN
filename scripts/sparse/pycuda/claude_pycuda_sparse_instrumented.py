@@ -1,6 +1,5 @@
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple
-
 import networkx as nx
 import numpy as np
 import nvtx
@@ -8,48 +7,46 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
 
-from utils.cuda_helper import allocate_gpu_memory, fetch_gpu_data, load_gpu_func
+from utils.cuda_helper import allocate_gpu_memory, fetch_gpu_data, load_gpu_kernel
 
 
-class SparseMatrixMultiply:
+@dataclass
+class NodeWorkload:
+    """Track computation and communication patterns per node"""
+    input_edges: int
+    output_edges: int
+    computation_time: float
+    neighbors: list
+
+
+class SparseMatrixMultiplyInstrumented:
     def __init__(self):
-        self.kernel = load_gpu_func("sparse_matmul")
+        self.kernel = next(load_gpu_kernel("sparse_instrumented", "matmul"))
 
-    def multiply(
-        self,
-        index: int,
-        num_warmup: int,
-        A: sp.csr_matrix,
-        B: sp.csr_matrix,
-        block_size: Tuple[int, int, int] = (16, 16, 1),
-    ) -> np.ndarray:
-        """Perform sparse matrix multiplication using PyCUDA."""
-        # Convert matrices to CSR format
+    def multiply(self, index, num_warmup, A, B, block_size=(32, 32, 1)):
         A_csr = A.tocsr().astype(np.float32)
-        B_csr = B.tocsr().astype(np.float32)
+        B_csc = B.tocsc().astype(np.float32)
 
-        # Extract CSR components
         A_data, A_indices, A_indptr = A_csr.data, A_csr.indices, A_csr.indptr
-        B_data, B_indices, B_indptr = B_csr.data, B_csr.indices, B_csr.indptr
+        B_data, B_indices, B_indptr = B_csc.data, B_csc.indices, B_csc.indptr
 
-        # Allocate GPU memory
         A_data_gpu = allocate_gpu_memory(A_data)
         A_indices_gpu = allocate_gpu_memory(A_indices)
         A_indptr_gpu = allocate_gpu_memory(A_indptr)
         B_data_gpu = allocate_gpu_memory(B_data)
         B_indices_gpu = allocate_gpu_memory(B_indices)
         B_indptr_gpu = allocate_gpu_memory(B_indptr)
+        C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csc.shape[1] * A_data.dtype.itemsize)
 
-        # Allocate memory for the result
-        C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csr.shape[1] * A_data.dtype.itemsize)
-
-        # Launch kernel
         grid_size = (
-            (B_csr.shape[1] + block_size[0] - 1) // block_size[0],
-            (A_csr.shape[0] + block_size[1] - 1) // block_size[1],
+            int(np.ceil(B_csc.shape[1] / block_size[0])),
+            int(np.ceil(A_csr.shape[0] / block_size[1])),
+            1,
         )
 
-        C_host = None
+        work_counters = np.zeros((A_csr.shape[0] * B_csc.shape[1]), dtype=np.int32)
+        work_counters_gpu = allocate_gpu_memory(work_counters)
+
         try:
             # Warmup
             with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
@@ -62,11 +59,14 @@ class SparseMatrixMultiply:
                         B_indices_gpu,
                         B_indptr_gpu,
                         C_gpu,
+                        work_counters_gpu,
                         np.int32(A_csr.shape[0]),
-                        np.int32(B_csr.shape[1]),
+                        np.int32(A_csr.shape[1]),
+                        np.int32(B_csc.shape[1]),
                         block=block_size,
                         grid=grid_size,
                     )
+                    cuda.Context.synchronize()
 
             # Main
             with nvtx.annotate(f"main {index}", domain=Path(__file__).stem):
@@ -78,16 +78,17 @@ class SparseMatrixMultiply:
                     B_indices_gpu,
                     B_indptr_gpu,
                     C_gpu,
+                    work_counters_gpu,
                     np.int32(A_csr.shape[0]),
-                    np.int32(B_csr.shape[1]),
+                    np.int32(A_csr.shape[1]),
+                    np.int32(B_csc.shape[1]),
                     block=block_size,
                     grid=grid_size,
                 )
+                cuda.Context.synchronize()
 
-            # Fetch result
-            C_host = fetch_gpu_data(C_gpu, (A_csr.shape[0], B_csr.shape[1]), dtype=np.float32)
+            C_dense = fetch_gpu_data(C_gpu, (A_csr.shape[0], B_csc.shape[1]), dtype=np.float32)
         finally:
-            # Free GPU memory
             A_data_gpu.free()
             A_indices_gpu.free()
             A_indptr_gpu.free()
@@ -95,8 +96,9 @@ class SparseMatrixMultiply:
             B_indices_gpu.free()
             B_indptr_gpu.free()
             C_gpu.free()
+            work_counters_gpu.free()
 
-        return C_host
+        return C_dense
 
 
 def execute(graph_info, num_warmup=1):
@@ -105,5 +107,5 @@ def execute(graph_info, num_warmup=1):
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
     adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
 
-    smm = SparseMatrixMultiply()
-    return smm.multiply(index, num_warmup, adjacency_matrix, feature_matrix)
+    smm_instrumented = SparseMatrixMultiplyInstrumented()
+    return smm_instrumented.multiply(index, num_warmup, adjacency_matrix, feature_matrix)

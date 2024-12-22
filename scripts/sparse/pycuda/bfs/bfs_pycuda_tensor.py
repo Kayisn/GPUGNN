@@ -11,10 +11,24 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
 from numpy import random as np_random
-from pycuda.compiler import SourceModule
 
-import utils.init_compiler  # sets CUDA environment variables
+from utils.cuda_helper import load_gpu_kernel
 from utils.cuda_partition import gpu_partition_graph
+
+
+def get_gpu_capabilities():
+    """Check GPU capabilities including tensor core support"""
+    device = cuda.Device(0)
+
+    # Check for Tensor Core support (SM 7.0 or higher)
+    compute_capability = device.compute_capability()
+    has_tensor_cores = compute_capability[0] >= 7
+
+    return {
+        "has_tensor_cores": has_tensor_cores,
+        "compute_capability": compute_capability,
+        "total_memory": device.total_memory(),
+    }
 
 
 def get_num_sms():
@@ -39,72 +53,55 @@ def sparse_matrix_multiply_pycuda(A, B, index, num_warmup):
     B_indptr = B_csr.indptr
 
     try:
-        with nvtx.annotate(f"prepare {index}", domain=Path(__file__).stem):
-            kernel_source = """
-            __global__ void sparse_matmul(float *A_data, int *A_indices, int *A_indptr, float *B_data, int *B_indices, int *B_indptr, float *C, int num_rows, int num_cols, int num_cols_B) {
-                int row = blockIdx.y * blockDim.y + threadIdx.y;
-                int col = blockIdx.x * blockDim.x + threadIdx.x;
-                if (row < num_rows && col < num_cols_B) {
-                    float sum = 0;
-                    int row_start = A_indptr[row];
-                    int row_end = A_indptr[row + 1];
-                    for (int idx = row_start; idx < row_end; ++idx) {
-                        int k = A_indices[idx];
-                        int col_start = B_indptr[k];
-                        int col_end = B_indptr[k + 1];
-                        for (int jdx = col_start; jdx < col_end; ++jdx) {
-                            if (B_indices[jdx] == col) {
-                                sum += A_data[idx] * B_data[jdx];
-                                break;
-                            }
-                        }
-                    }
-                    C[row * num_cols_B + col] = sum;
-                }
-            }
-            """
+        # Choose appropriate kernel based on GPU capabilities
+        # if get_gpu_capabilities()["has_tensor_cores"]:
+        if False:
+            print("Using tensor core kernel for sparse matrix multiplication.")
+            kernel_name = "sparse_tensor"
+        else:
+            print("Using standard kernel for sparse matrix multiplication.")
+            kernel_name = "sparse"
 
-            # Compile the selected kernel
-            mod = SourceModule(kernel_source)
-            sparse_matmul = mod.get_function("sparse_matmul")
+        # Compile the selected kernel
+        sparse_matmul = next(load_gpu_kernel(kernel_name, "matmul"))
 
-            # TODO: Adjust block size for tensor cores if available
-            block_size = (16, 16, 1)
+        # TODO: Adjust block size for tensor cores if available
+        block_size = (16, 16, 1)
 
-            # Ensure A and B have valid shapes
-            if A.shape[0] == 0 or A.shape[1] == 0 or B.shape[0] == 0 or B.shape[1] == 0:
-                raise ValueError("Input matrices A and B must have non-zero dimensions.")
+        # Ensure A and B have valid shapes
+        if A.shape[0] == 0 or A.shape[1] == 0 or B.shape[0] == 0 or B.shape[1] == 0:
+            raise ValueError("Input matrices A and B must have non-zero dimensions.")
 
-            # Log the sizes of the CSR components
-            print(f"A_data size: {A_data.nbytes}, A_indices size: {A_indices.nbytes}, A_indptr size: {A_indptr.nbytes}")
-            print(f"B_data size: {B_data.nbytes}, B_indices size: {B_indices.nbytes}, B_indptr size: {B_indptr.nbytes}")
+        # Log the sizes of the CSR components
+        print(f"A_data size: {A_data.nbytes}, A_indices size: {A_indices.nbytes}, A_indptr size: {A_indptr.nbytes}")
+        print(f"B_data size: {B_data.nbytes}, B_indices size: {B_indices.nbytes}, B_indptr size: {B_indptr.nbytes}")
 
-            # Check if A_data is empty
-            if A_data.nbytes == 0:
-                raise ValueError("Matrix A is empty, skipping this cluster.")
+        # Check if A_data is empty
+        if A_data.nbytes == 0:
+            raise ValueError("Matrix A is empty, skipping this cluster.")
 
-            # Allocate GPU memory for CSR components
-            A_data_gpu = cuda.mem_alloc(A_data.nbytes)
-            A_indices_gpu = cuda.mem_alloc(A_indices.nbytes)
-            A_indptr_gpu = cuda.mem_alloc(A_indptr.nbytes)
-            B_data_gpu = cuda.mem_alloc(B_data.nbytes)
-            B_indices_gpu = cuda.mem_alloc(B_indices.nbytes)
-            B_indptr_gpu = cuda.mem_alloc(B_indptr.nbytes)
-            C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csr.shape[1] * A_data.dtype.itemsize)
+        # Allocate GPU memory for CSR components
+        A_data_gpu = cuda.mem_alloc(A_data.nbytes)
+        A_indices_gpu = cuda.mem_alloc(A_indices.nbytes)
+        A_indptr_gpu = cuda.mem_alloc(A_indptr.nbytes)
+        B_data_gpu = cuda.mem_alloc(B_data.nbytes)
+        B_indices_gpu = cuda.mem_alloc(B_indices.nbytes)
+        B_indptr_gpu = cuda.mem_alloc(B_indptr.nbytes)
+        C_gpu = cuda.mem_alloc(A_csr.shape[0] * B_csr.shape[1] * A_data.dtype.itemsize)
 
-            # Copy data to GPU (synchronous)
-            cuda.memcpy_htod(A_data_gpu, A_data)
-            cuda.memcpy_htod(A_indices_gpu, A_indices)
-            cuda.memcpy_htod(A_indptr_gpu, A_indptr)
-            cuda.memcpy_htod(B_data_gpu, B_data)
-            cuda.memcpy_htod(B_indices_gpu, B_indices)
-            cuda.memcpy_htod(B_indptr_gpu, B_indptr)
+        # Copy data to GPU (synchronous)
+        cuda.memcpy_htod(A_data_gpu, A_data)
+        cuda.memcpy_htod(A_indices_gpu, A_indices)
+        cuda.memcpy_htod(A_indptr_gpu, A_indptr)
+        cuda.memcpy_htod(B_data_gpu, B_data)
+        cuda.memcpy_htod(B_indices_gpu, B_indices)
+        cuda.memcpy_htod(B_indptr_gpu, B_indptr)
 
-            grid_size = (
-                int(np.ceil(B_csr.shape[1] / 16)),
-                int(np.ceil(A_csr.shape[0] / 16)),
-                1,
-            )
+        grid_size = (
+            int(np.ceil(B_csr.shape[1] / 16)),
+            int(np.ceil(A_csr.shape[0] / 16)),
+            1,
+        )
 
         # Warmup
         with nvtx.annotate(f"warmup {index}", domain=Path(__file__).stem):
@@ -285,39 +282,7 @@ def calculate_pagerank_gpu(adjacency_matrix, damping=0.85, max_iterations=100, t
     cuda.memcpy_htod(values_gpu, adjacency_matrix.data)
 
     # Compile kernel
-    kernel_source = """
-    __global__ void pagerank_iteration(
-        const float *in_rank,
-        float *out_rank,
-        const int *row_ptr,
-        const int *col_idx,
-        const float *values,
-        const float damping,
-        const int num_nodes
-    ) {
-        int node = blockDim.x * blockIdx.x + threadIdx.x;
-        
-        if (node < num_nodes) {
-            float sum = 0.0f;
-            int start = row_ptr[node];
-            int end = row_ptr[node + 1];
-            
-            // Sum contributions from incoming edges
-            for (int edge = start; edge < end; edge++) {
-                int src = col_idx[edge];
-                int src_degree = row_ptr[src + 1] - row_ptr[src];
-                if (src_degree > 0) {
-                    sum += in_rank[src] / src_degree;
-                }
-            }
-            
-            // Apply damping factor
-            out_rank[node] = (1.0f - damping) / num_nodes + damping * sum;
-        }
-    }
-    """
-    mod = SourceModule(kernel_source)
-    pagerank_kernel = mod.get_function("pagerank_iteration")
+    pagerank_kernel = next(load_gpu_kernel("pagerank_iteration", "pagerank_iteration"))
 
     # Set up grid and block dimensions
     block_size = 256

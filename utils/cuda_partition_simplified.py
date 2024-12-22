@@ -3,7 +3,7 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
 
-from utils.cuda_helper import load_gpu_func
+from utils.cuda_helper import load_gpu_kernel
 
 
 def gpu_partition_graph(adjacency_matrix, num_partitions):
@@ -45,7 +45,7 @@ def gpu_partition_graph(adjacency_matrix, num_partitions):
         cuda.memcpy_htod(col_idx_gpu, col_idx)
 
         # Compile and configure kernel
-        kernel = load_gpu_func("partition_simplified")
+        kernel = next(load_gpu_kernel("partition_simplified", "simple_partition"))
 
         # Configure kernel parameters
         block_size = 256

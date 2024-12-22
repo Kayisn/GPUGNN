@@ -1,7 +1,7 @@
 #include <mma.h>
 using namespace nvcuda;
 
-__global__ void sparse_matmul_tensor(
+__global__ void matmul(
     float *A_data, int *A_indices, int *A_indptr,
     float *B_data, int *B_indices, int *B_indptr,
     float *C, int num_rows, int num_cols, int num_cols_B

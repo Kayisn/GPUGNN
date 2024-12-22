@@ -8,7 +8,7 @@ import pycuda.autoinit
 import pycuda.driver as cuda
 import scipy.sparse as sp
 
-from utils.cuda_helper import load_gpu_func
+from utils.cuda_helper import load_gpu_kernel
 from utils.cuda_partition import gpu_partition_graph
 
 
@@ -73,7 +73,7 @@ class CUDAKernelManager:
             self.context = cuda.Device(0).make_context()
             # Compile kernel once
             try:
-                self.kernel = load_gpu_func("sparse_matmul")
+                self.kernel = next(load_gpu_kernel("sparse", "matmul"))
                 if self.kernel is None:
                     raise RuntimeError("Failed to compile kernel")
             except Exception as e:
@@ -192,7 +192,7 @@ class GPUPipeline:
             self.ctx = self.device.make_context()
 
             # Load kernel in this context
-            self.kernel = load_gpu_func("sparse_matmul")
+            self.kernel = next(load_gpu_kernel("sparse", "matmul"))
 
             # Set block size for Maxwell architecture
             self.block = (16, 16, 1)

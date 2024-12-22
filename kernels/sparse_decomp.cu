@@ -10,7 +10,7 @@ __device__ inline int binary_search(const int* array, int left, int right, int t
     return -1;
 }
 
-__global__ void sparse_matmul(const float* __restrict__ A_data,
+__global__ void matmul(const float* __restrict__ A_data,
                               const int* __restrict__ A_indices,
                               const int* __restrict__ A_indptr,
                               const float* __restrict__ B_data,
