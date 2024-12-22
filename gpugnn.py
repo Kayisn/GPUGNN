@@ -1,21 +1,11 @@
 import argparse
 import ctypes
 import json
-import os
 import re
 import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-
-# Check if running as administrator
-if (os.name == "nt" and not ctypes.windll.shell32.IsUserAnAdmin()) or (os.name == "posix" and os.geteuid() != 0):
-    print("Please run as root/administrator.")
-    exit()
-
-# Need to add the Nsight Compute Python package to the path before importing ncu_report
-sys.path.append(str(Path(subprocess.check_output(["where", "ncu"], text=True).strip()).parent / "extras" / "python"))
-import ncu_report
 
 # Add command line argument parsing
 parser = argparse.ArgumentParser(description="Profile GNN experiments with different implementations")
@@ -27,6 +17,18 @@ parser.add_argument("--profile", default=False, action="store_true", help="Enabl
 parser.add_argument("--nvtx", "-n", type=str, default="main", help="Comma-separated list of NVTX ranges to profile")
 parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
 args = parser.parse_args()
+
+if args.profile:
+    # Check if running as administrator
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        print("Please run as root/administrator.")
+        exit(1)
+
+    # Need to add the Nsight Compute Python package to the path before importing ncu_report
+    sys.path.append(
+        str(Path(subprocess.check_output(["where", "ncu"], text=True).strip()).parent / "extras" / "python")
+    )
+    import ncu_report
 
 # List of methods to run
 methods = all_methods = [path.stem for path in Path("scripts").glob("*.py") if path.stem != "__init__"]
@@ -84,7 +86,7 @@ for method in methods:
             print(f"Completed running {method}.\n")
     except subprocess.CalledProcessError as e:
         print(f"Error running {method}. Exit code: {e.returncode}")
-        exit()
+        exit(1)
 
     if args.profile and (report_dir / f"report_{method}.ncu-rep").exists():
         """
