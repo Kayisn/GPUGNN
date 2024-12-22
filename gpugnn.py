@@ -16,6 +16,7 @@ parser.add_argument("--verify", default=False, action="store_true", help="Verify
 parser.add_argument("--profile", default=False, action="store_true", help="Enable profiling")
 parser.add_argument("--nvtx", "-n", type=str, default="main", help="Comma-separated list of NVTX ranges to profile")
 parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
+parser.add_argument("--matrices", "-s", type=str, default=None, help="Index pattern of matrices to process")
 args = parser.parse_args()
 
 if args.profile:
@@ -28,7 +29,7 @@ if args.profile:
     sys.path.append(
         str(Path(subprocess.check_output(["where", "ncu"], text=True).strip()).parent / "extras" / "python")
     )
-    import ncu_report
+    import ncu_report  # type: ignore
 
 # List of methods to run
 methods = [path for path in Path("scripts").rglob("*.py") if path.stem != "__init__"]
@@ -48,7 +49,7 @@ if args.profile:
 
 # Run each script sequentially
 for method in methods:
-    cmd = f"python executer.py --method {method} --warmup {args.warmup} {'--graphs ' + args.graphs if args.graphs else ''} {'--verify' if args.verify else ''}"
+    cmd = f"python executer.py --method {method} --warmup {args.warmup} {'--graphs ' + args.graphs if args.graphs else ''} {'--matrices ' + args.matrices if args.matrices else ''} {'--verify' if args.verify else ''}"
 
     try:
         if args.profile:

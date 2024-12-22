@@ -7,11 +7,14 @@ from collections import defaultdict
 from pathlib import Path
 
 import networkx as nx
+import numpy as np
+import scipy.io
 
 from utils.verification import verify_result
 
 graph_dir = Path("graphs")
 results_path = Path("results") / "results.json"
+ssmatrices_dir = Path("ssmatrices")
 
 
 def module_from_file(file_path: Path):
@@ -21,15 +24,23 @@ def module_from_file(file_path: Path):
     return module
 
 
-def parse_graph_indices(graphs):
-    if not graphs or graphs == "all":
-        return list(graph_dir.glob("graph_*.pkl"))
-    if "," in graphs:
-        return [graph_dir / f"graph_{i}.pkl" for i in graphs.split(",")]
-    if "-" in graphs:
-        start, end = map(int, graphs.split("-"))
+def parse_graph_indices(graphs_pattern):
+    if graphs_pattern == "all":
+        return graph_dir.glob("graph_*.pkl")
+    if "," in graphs_pattern:
+        return [graph_dir / f"graph_{i}.pkl" for i in graphs_pattern.split(",")]
+    if "-" in graphs_pattern:
+        start, end = map(int, graphs_pattern.split("-"))
         return [graph_dir / f"graph_{i}.pkl" for i in range(start, end + 1)]
-    return [graph_dir / f"graph_{graphs}.pkl"]
+    return [graph_dir / f"graph_{graphs_pattern}.pkl"]
+
+
+def parse_matrices_indices(matrices_pattern):
+    matrices = ssmatrices_dir.glob("*.mtx")
+    if matrices_pattern != "all":
+        for pattern in matrices_pattern.split(","):
+            matrices = filter(lambda m: pattern in m.stem, matrices)
+    return matrices
 
 
 if __name__ == "__main__":
@@ -39,47 +50,64 @@ if __name__ == "__main__":
     parser.add_argument("--verify", default=False, action="store_true", help="Verify the result")
     parser.add_argument("--warmup", "-w", type=int, default=1, help="Number of warmup runs")
     parser.add_argument("--graphs", "-g", type=str, default=None, help="Index pattern of graphs to process")
+    parser.add_argument("--matrices", "-s", type=str, default=None, help="Index pattern of matrices to process")
     args = parser.parse_args()
+
+    if not args.graphs and not args.matrices:
+        parser.error("At least one of --graphs or --matrices must be provided.")
 
     # import chosen method
     method = module_from_file(Path(args.method))
 
-    # Load graphs
-    graphs = []
-    print(f"Loading graphs...")
-    for graph_file in parse_graph_indices(args.graphs):
-        with open(graph_file, "rb") as f:
-            graphs.append(pickle.load(f))
+    # Load graphs or matrices
+    data = []
+    if args.graphs:
+        print(f"Loading graphs...")
+        for graph_file in parse_graph_indices(args.graphs):
+            with open(graph_file, "rb") as f:
+                data.append(pickle.load(f))
+
+    if args.matrices:
+        print(f"Loading matrices...")
+        for matrix_file in parse_matrices_indices(args.matrices):
+            with open(matrix_file, "rb") as f:
+                matrix = scipy.io.mmread(f).astype(np.float32)
+                num_nodes = matrix.shape[0]
+                sparsity = 1 - (matrix.nnz / (num_nodes**2))
+                data.append(
+                    {
+                        "index": matrix_file.stem,
+                        "name": f"{num_nodes}_p_{sparsity:.2f}_{matrix_file.stem}",
+                        "type": "matrix",
+                        "graph": nx.from_scipy_sparse_array(matrix),
+                        "feature_matrix": matrix,
+                        "num_nodes": num_nodes,
+                        "sparsity": sparsity,
+                    }
+                )
 
     results = defaultdict(dict)
-    for graph_info in graphs:
-        graph_idx = str(graph_info["index"])
-        graph_name = graph_info["name"]
-        graph_type = graph_info["type"]
-        graph = graph_info["graph"]
-        feature_matrix = graph_info["feature_matrix"]
-        num_nodes = graph_info["num_nodes"]
-        sparsity = graph_info["sparsity"]
-
-        print(f"Testing graph {graph_idx}...")
+    for item in data:
+        item_idx = str(item["index"])
+        print(f"Testing {item_idx}...")
 
         # Execute the method
-        result = method.execute(graph_info, num_warmup=args.warmup)
+        result = method.execute(item, num_warmup=args.warmup)
 
         # Verify the result
         is_correct = None
         if args.verify:
-            adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=float)
-            is_correct = bool(verify_result(result, adjacency_matrix, feature_matrix))
+            adjacency_matrix = nx.to_scipy_sparse_array(item["graph"], format="lil", dtype=float)
+            is_correct = bool(verify_result(result, adjacency_matrix, feature_matrix=item["feature_matrix"]))
             print(f"Verification: {'Correct' if is_correct else 'Incorrect'}")
 
-        results[method.__name__][graph_idx] = {
-            "graph_name": graph_name,
-            "graph_type": graph_type,
+        results[method.__name__][item_idx] = {
+            "graph_name": item["name"],
+            "graph_type": item["type"],
             "method": method.__name__,
             "date": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "num_nodes": num_nodes,
-            "sparsity": sparsity,
+            "num_nodes": item["num_nodes"],
+            "sparsity": item["sparsity"],
             "is_correct": is_correct,
         }
 

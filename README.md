@@ -77,8 +77,8 @@ GPUGNN/\
 # Generate test graphs
 python utils/graph_generation.py
 
-# Run basic sparse implementation (leave out --graphs to run on all graphs)
-python gpugnn.py --methods chatgpt_pycuda_sparse
+# Run basic sparse implementation
+python gpugnn.py --methods chatgpt_pycuda_sparse --graphs 0
 
 # Run chatgpt_pycuda_sparse and chatgpt_pytorch_dense with 10 warmup iterations and verify results
 python gpugnn.py --warmup 10 --methods chatgpt_pycuda_sparse,chatgpt_pytorch_dense --verify

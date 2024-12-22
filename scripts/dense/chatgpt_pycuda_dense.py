@@ -67,10 +67,8 @@ class DenseMatrixMultiply:
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
+    adjacency_matrix_dense = nx.to_numpy_array(graph_info["graph"], dtype=np.float32)
     feature_matrix = sp.csr_matrix(graph_info["feature_matrix"]).toarray()
-    adjacency_matrix_dense = nx.to_numpy_array(graph, dtype=np.float32)
 
     dmm = DenseMatrixMultiply()
-    return dmm.multiply(index, num_warmup, adjacency_matrix_dense, feature_matrix)
+    return dmm.multiply(graph_info["index"], num_warmup, adjacency_matrix_dense, feature_matrix)
