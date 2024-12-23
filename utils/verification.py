@@ -40,6 +40,9 @@ def verify_result(gpu_result, adj_matrix, feature_matrix, rtol=1e-3, atol=1e-4):
     # Compare results
     is_close = np.allclose(cpu_result, gpu_result, rtol=rtol, atol=atol)
     if not is_close:
+        print(f"CPU Result:\n{cpu_result}")
+        print(f"GPU Result:\n{gpu_result}")
+        
         max_diff = np.max(np.abs(cpu_result - gpu_result))
         relative_diff = np.max(np.abs((cpu_result - gpu_result) / (cpu_result + 1e-10)))
         print(f"Warning: Results differ!")

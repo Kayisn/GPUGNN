@@ -1,209 +1,144 @@
-// Constants for kernel configuration
+// Ensure extern "C" for proper name mangling
+extern "C" {
+
+// Constants and shared memory optimizations
 #define BLOCK_SIZE 256
 #define WARP_SIZE 32
-#define MAX_QUEUE_SIZE 4096
+#define QUEUE_SIZE 1024  // Reduced queue size
+#define MAX_BATCHES 16   // Reduced batch count
+#define SHARED_MEM_ALIGN 16
 
-// Shared memory queue structure
+// Enhanced queue with batched processing
 typedef struct {
-    int data[MAX_QUEUE_SIZE];
-    unsigned int head;
-    unsigned int tail;
-} Queue;
+    unsigned int data[QUEUE_SIZE];  // Changed from int to unsigned int
+    unsigned int sizes[MAX_BATCHES];
+    unsigned int batch_head;
+    unsigned int batch_tail;
+    unsigned int current_size;
+} BatchQueue;
 
-// Atomic queue operations
-__device__ bool queue_push(Queue* q, int value) {
-    unsigned int tail = atomicAdd(&q->tail, 1);
-    if (tail >= MAX_QUEUE_SIZE) {
-        atomicSub(&q->tail, 1);
+__device__ void init_batch_queue(BatchQueue* q) {
+    q->batch_head = 0;
+    q->batch_tail = 0;
+    q->current_size = 0;
+    for (int i = 0; i < MAX_BATCHES; i++) {
+        q->sizes[i] = 0;
+    }
+}
+
+__device__ bool queue_push_batch(BatchQueue* q, unsigned int value) {  // Changed parameter type
+    if (q->current_size >= QUEUE_SIZE) return false;
+    unsigned int idx = atomicAdd(&q->sizes[q->batch_tail], 1);
+    if (idx >= QUEUE_SIZE / MAX_BATCHES) {
+        atomicSub(&q->sizes[q->batch_tail], 1);
         return false;
     }
-    q->data[tail % MAX_QUEUE_SIZE] = value;
+    q->data[q->batch_tail * (QUEUE_SIZE / MAX_BATCHES) + idx] = value;
+    atomicAdd(&q->current_size, 1);
     return true;
 }
 
-__device__ int queue_pop(Queue* q) {
-    unsigned int head = atomicAdd(&q->head, 1);
-    if (head >= q->tail) {
-        atomicSub(&q->head, 1);
+__device__ int queue_pop_batch(BatchQueue* q) {
+    if (q->current_size == 0) return -1;
+    unsigned int batch_size = q->sizes[q->batch_head];
+    if (batch_size == 0) {
+        q->batch_head = (q->batch_head + 1) % MAX_BATCHES;
         return -1;
     }
-    return q->data[head % MAX_QUEUE_SIZE];
+    unsigned int idx = atomicSub(&q->sizes[q->batch_head], 1);
+    if (idx <= 0) return -1;
+    atomicSub(&q->current_size, 1);
+    return q->data[q->batch_head * (QUEUE_SIZE / MAX_BATCHES) + idx - 1];
 }
 
-// BFS kernel for cluster expansion
-__global__ void bfs_cluster_kernel(
+// Spectral clustering kernel for initial partitioning
+__global__ void spectral_clustering(
+    const float* __restrict__ fiedler_vector,
+    int* __restrict__ initial_partition,
+    const int num_nodes,
+    const float split_value) {
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    if (tid < num_nodes) {
+        initial_partition[tid] = fiedler_vector[tid] > split_value ? 1 : 0;
+    }
+}
+
+// Enhanced BFS kernel with load balancing
+__global__ void balanced_bfs(
     const int* __restrict__ row_ptr,
     const int* __restrict__ col_idx,
+    const float* __restrict__ edge_weights,
     int* __restrict__ cluster_assignments,
     unsigned int* __restrict__ cluster_sizes,
-    int* __restrict__ frontier,
-    unsigned int* frontier_size,
-    const unsigned int max_cluster_size,
+    const int max_edges_per_cluster,
     const int num_nodes,
-    const int cluster_id) {
-    __shared__ Queue queue;
+    const int cluster_id,
+    BatchQueue* queue) {
+    __shared__ BatchQueue shared_queue;
+    __shared__ unsigned int cluster_edge_count;
+
     if (threadIdx.x == 0) {
-        queue.head = 0;
-        queue.tail = *frontier_size;
-        for (int i = 0; i < *frontier_size; i++) {
-            queue.data[i] = frontier[i];
-        }
+        init_batch_queue(&shared_queue);
+        cluster_edge_count = 0;
     }
     __syncthreads();
 
     while (true) {
         __syncthreads();
-        if (queue.head >= queue.tail) break;
+        if (shared_queue.current_size == 0 || cluster_edge_count >= max_edges_per_cluster) break;
 
-        int node = queue_pop(&queue);
+        int node = queue_pop_batch(&shared_queue);
         if (node == -1) continue;
 
-        // Process neighbors
         int start = row_ptr[node];
         int end = row_ptr[node + 1];
 
+        // Count edges before processing
+        int edge_count = atomicAdd(&cluster_edge_count, end - start);
+        if (edge_count >= max_edges_per_cluster) continue;
+
+        // Process neighbors with edge density consideration
         for (int edge = start + threadIdx.x; edge < end; edge += blockDim.x) {
             int neighbor = col_idx[edge];
-
-            // Try to claim this node for current cluster
             if (cluster_assignments[neighbor] == -1) {
-                if (atomicCAS(&cluster_assignments[neighbor], -1, cluster_id) == -1) {
-                    unsigned int size = atomicAdd(&cluster_sizes[cluster_id], 1);
-                    if (size < max_cluster_size) {
-                        queue_push(&queue, neighbor);
-                    }
+                float weight = edge_weights[edge];
+
+                // Use edge weight as density metric
+                if (weight > 0.5f && atomicCAS(&cluster_assignments[neighbor], -1, cluster_id) == -1) {
+                    atomicAdd(&cluster_sizes[cluster_id], 1);
+                    queue_push_batch(&shared_queue, neighbor);
                 }
             }
         }
     }
-
-    // Update frontier for next iteration if needed
-    if (threadIdx.x == 0) {
-        *frontier_size = queue.tail - queue.head;
-        for (unsigned int i = queue.head; i < queue.tail; i++) {
-            frontier[i - queue.head] = queue.data[i % MAX_QUEUE_SIZE];
-        }
-    }
 }
 
-// Initialize clusters based on degree centrality
-__global__ void initialize_clusters(
-    const int* __restrict__ row_ptr,
-    int* __restrict__ cluster_assignments,
-    unsigned int* __restrict__ node_degrees,
-    const int num_nodes) {
-    int tid = blockDim.x * blockIdx.x + threadIdx.x;
-    if (tid < num_nodes) {
-        // Calculate node degree
-        node_degrees[tid] = row_ptr[tid + 1] - row_ptr[tid];
-        cluster_assignments[tid] = -1;
-    }
-}
-
-// Kernel to find edge cuts using weighted edges
-__global__ void find_edge_cuts(
+// Edge weight computation with memory coalescing
+__global__ void compute_edge_weights(
     const int* __restrict__ row_ptr,
     const int* __restrict__ col_idx,
     float* __restrict__ edge_weights,
-    int* __restrict__ cut_markers,
-    const int num_nodes,
-    const float threshold) {
+    const int num_nodes) {
     int tid = blockDim.x * blockIdx.x + threadIdx.x;
+
     if (tid < num_nodes) {
         int start = row_ptr[tid];
         int end = row_ptr[tid + 1];
 
-        // Calculate local clustering coefficient
-        float local_coeff = 0.0f;
-        int degree = end - start;
+        for (int i = start; i < end; i++) {
+            int j = col_idx[i];
+            int j_start = row_ptr[j];
+            int j_end = row_ptr[j + 1];
 
-        if (degree > 1) {
-            for (int i = start; i < end; i++) {
-                int neighbor1 = col_idx[i];
-                for (int j = start; j < end; j++) {
-                    int neighbor2 = col_idx[j];
-                    if (neighbor1 != neighbor2) {
-                        // Check if neighbors are connected
-                        int n1_start = row_ptr[neighbor1];
-                        int n1_end = row_ptr[neighbor1 + 1];
-                        for (int k = n1_start; k < n1_end; k++) {
-                            if (col_idx[k] == neighbor2) {
-                                local_coeff += 1.0f;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            // Compute edge density metric
+            int local_edges = end - start;
+            int neighbor_edges = j_end - j_start;
+            float density = (float)(local_edges + neighbor_edges) /
+                            (float)(num_nodes * 2);  // Normalize by max possible edges
 
-            // Normalize coefficient
-            local_coeff /= (float)(degree * (degree - 1));
-
-            // Mark edges with low clustering coefficient as potential cuts
-            if (local_coeff < threshold) {
-                for (int i = start; i < end; i++) {
-                    edge_weights[i] = local_coeff;
-                    cut_markers[i] = 1;
-                }
-            }
+            edge_weights[i] = density;
         }
     }
 }
 
-// Modified BFS kernel that grows away from cuts
-__global__ void bfs_away_from_cuts(
-    const int* __restrict__ row_ptr,
-    const int* __restrict__ col_idx,
-    const int* __restrict__ cut_markers,
-    int* __restrict__ cluster_assignments,
-    unsigned int* __restrict__ cluster_sizes,
-    int* __restrict__ frontier,
-    unsigned int* frontier_size,
-    const unsigned int max_cluster_size,
-    const int num_nodes,
-    const int cluster_id) {
-    __shared__ Queue queue;
-    if (threadIdx.x == 0) {
-        queue.head = 0;
-        queue.tail = *frontier_size;
-        for (int i = 0; i < *frontier_size; i++) {
-            queue.data[i] = frontier[i];
-        }
-    }
-    __syncthreads();
-
-    while (true) {
-        __syncthreads();
-        if (queue.head >= queue.tail) break;
-
-        int node = queue_pop(&queue);
-        if (node == -1) continue;
-
-        int start = row_ptr[node];
-        int end = row_ptr[node + 1];
-
-        // Process neighbors, preferring those not across cuts
-        for (int edge = start + threadIdx.x; edge < end; edge += blockDim.x) {
-            int neighbor = col_idx[edge];
-            if (cluster_assignments[neighbor] == -1) {
-                // Only expand if not marked as cut or if no other options
-                if (!cut_markers[edge]) {
-                    if (atomicCAS(&cluster_assignments[neighbor], -1, cluster_id) == -1) {
-                        unsigned int size = atomicAdd(&cluster_sizes[cluster_id], 1);
-                        if (size < max_cluster_size) {
-                            queue_push(&queue, neighbor);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Update frontier
-    if (threadIdx.x == 0) {
-        *frontier_size = queue.tail - queue.head;
-        for (unsigned int i = queue.head; i < queue.tail; i++) {
-            frontier[i - queue.head] = queue.data[i % MAX_QUEUE_SIZE];
-        }
-    }
-}
+}  // extern "C"

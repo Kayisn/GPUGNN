@@ -45,7 +45,7 @@ def load_gpu_kernel(mod: str, *func: str) -> cuda.Function:
         kernel_source = f.read()
 
     # Compile kernel
-    mod = SourceModule(kernel_source)
+    mod = SourceModule(kernel_source, no_extern_c=True)
     return (mod.get_function(f) for f in func)
 
 

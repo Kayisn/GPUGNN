@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import networkx as nx
 import numpy as np
 import nvtx
@@ -11,7 +12,7 @@ from utils.cuda_helper import allocate_gpu_memory, fetch_gpu_data, load_gpu_kern
 
 class SparseMatrixMultiply:
     def __init__(self):
-        self.kernel = next(load_gpu_kernel("sparse_claude", "matmul"))
+        self.kernel = next(load_gpu_kernel("sparse_csr_csc", "matmul"))
 
     def multiply(self, index, num_warmup, A, B, block_size=(32, 32, 1)):
         A_csr = A.tocsr().astype(np.float32)
@@ -86,10 +87,10 @@ class SparseMatrixMultiply:
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
-
     smm = SparseMatrixMultiply()
-    return smm.multiply(index, num_warmup, adjacency_matrix, feature_matrix)
+    return smm.multiply(
+        graph_info["index"],
+        num_warmup,
+        nx.to_scipy_sparse_array(graph_info["graph"], format="lil", dtype=np.float32),
+        sp.csr_matrix(graph_info["feature_matrix"]),
+    )

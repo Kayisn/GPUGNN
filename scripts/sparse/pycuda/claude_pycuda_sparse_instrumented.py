@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+
 import networkx as nx
 import numpy as np
 import nvtx
@@ -13,6 +14,7 @@ from utils.cuda_helper import allocate_gpu_memory, fetch_gpu_data, load_gpu_kern
 @dataclass
 class NodeWorkload:
     """Track computation and communication patterns per node"""
+
     input_edges: int
     output_edges: int
     computation_time: float
@@ -102,10 +104,10 @@ class SparseMatrixMultiplyInstrumented:
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
-
     smm_instrumented = SparseMatrixMultiplyInstrumented()
-    return smm_instrumented.multiply(index, num_warmup, adjacency_matrix, feature_matrix)
+    return smm_instrumented.multiply(
+        graph_info["index"],
+        num_warmup,
+        nx.to_scipy_sparse_array(graph_info["graph"], format="lil", dtype=np.float32),
+        sp.csr_matrix(graph_info["feature_matrix"]),
+    )

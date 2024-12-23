@@ -1,4 +1,5 @@
 import argparse
+import gc
 import importlib
 import json
 import pickle
@@ -27,7 +28,9 @@ def module_from_file(file_path: Path):
     return module
 
 
-def parse_graph_indices(graphs_pattern):
+def parse_synthetic_pattern(graphs_pattern):
+    if graphs_pattern is None:
+        return []
     if graphs_pattern == "all":
         return synthetic_dir.glob("graph_*.pkl")
     if "," in graphs_pattern:
@@ -38,20 +41,76 @@ def parse_graph_indices(graphs_pattern):
     return [synthetic_dir / f"graph_{graphs_pattern}.pkl"]
 
 
-def parse_matrices_indices(matrices_pattern):
-    matrices = ssmatrices_dir.glob("*.mtx")
+def parse_matrices_pattern(matrices_pattern):
+    if matrices_pattern is None:
+        return []
+    all_matrices = ssmatrices_dir.glob("*.mtx")
+    matrices = []
     if matrices_pattern != "all":
         for pattern in matrices_pattern.split(","):
-            matrices = filter(lambda m: pattern in m.stem, matrices)
-    return matrices
+            matrices.extend(filter(lambda m: pattern in m.stem, all_matrices))
+    return [Path(m) for m in matrices]
 
 
-def parse_snap_indices(matrices_pattern):
-    matrices = snap_dir.glob("*.gz")
-    if matrices_pattern != "all":
-        for pattern in matrices_pattern.split(","):
-            matrices = filter(lambda m: pattern in m.stem, matrices)
-    return matrices
+def parse_snap_pattern(networks_pattern):
+    if networks_pattern is None:
+        return []
+    all_networks = snap_dir.glob("*.gz")
+    networks = []
+    if networks_pattern != "all":
+        for pattern in networks_pattern.split(","):
+            networks.extend(filter(lambda n: pattern in n.stem, all_networks))
+    return [Path(n) for n in networks]
+
+
+def load_synthetic(graphs_file):
+    with open(graphs_file, "rb") as f:
+        return pickle.load(f)
+
+
+def load_matrix(matrix_file):
+    matrix = scipy.io.mmread(matrix_file).astype(np.float32)
+    num_nodes = matrix.shape[0]
+    sparsity = 1 - (matrix.nnz / (num_nodes**2))
+    return {
+        "index": matrix_file.stem,
+        "name": f"{num_nodes}_p_{sparsity:.2f}_{matrix_file.stem}",
+        "type": "matrix",
+        "graph": nx.from_scipy_sparse_array(matrix),
+        "feature_matrix": matrix,
+        "num_nodes": num_nodes,
+        "sparsity": sparsity,
+    }
+
+
+def load_snap(snap_file):
+    if ".txt" in snap_file.suffixes:
+        graph = nx.read_edgelist(snap_file, nodetype=int)
+    elif ".csv" in snap_file.suffixes:
+        graph = nx.read_edgelist(snap_file, delimiter=",", nodetype=int, data=(("source", int), ("target", int)))
+
+    num_nodes = graph.number_of_nodes()
+    sparsity = 1 - (graph.number_of_edges() / (num_nodes**2))
+    return {
+        "index": snap_file.stem,
+        "name": f"{num_nodes}_p_{sparsity:.2f}_{snap_file.stem}",
+        "type": "snap",
+        "graph": graph,
+        "feature_matrix": sp.identity(num_nodes, format="csr", dtype=np.float32),
+        "num_nodes": num_nodes,
+        "sparsity": sparsity,
+    }
+
+
+def load_graph(graph_file):
+    if "synthetic" in graph_file.parts:
+        return load_synthetic(graph_file)
+    elif "ssmatrices" in graph_file.parts:
+        return load_matrix(graph_file)
+    elif "snap" in graph_file.parts:
+        return load_snap(graph_file)
+    else:
+        raise ValueError("Unknown graph type.")
 
 
 if __name__ == "__main__":
@@ -76,63 +135,24 @@ if __name__ == "__main__":
     method = module_from_file(Path(args.method))
 
     # Load graphs or matrices
-    data = []
-
-    if args.synthetic:
-        print(f"Loading graphs...")
-        for graph_file in parse_graph_indices(args.synthetic):
-            with open(graph_file, "rb") as f:
-                data.append(pickle.load(f))
-
-    if args.ssmatrices:
-        print(f"Loading matrices...")
-        for matrix_file in parse_matrices_indices(args.ssmatrices):
-            matrix = scipy.io.mmread(matrix_file).astype(np.float32)
-            num_nodes = matrix.shape[0]
-            sparsity = 1 - (matrix.nnz / (num_nodes**2))
-            data.append(
-                {
-                    "index": matrix_file.stem,
-                    "name": f"{num_nodes}_p_{sparsity:.2f}_{matrix_file.stem}",
-                    "type": "matrix",
-                    "graph": nx.from_scipy_sparse_array(matrix),
-                    "feature_matrix": matrix,
-                    "num_nodes": num_nodes,
-                    "sparsity": sparsity,
-                }
-            )
-
-    if args.snap:
-        print(f"Loading SNAP networks...")
-        for snap_file in parse_snap_indices(args.snap):
-            if ".txt" in snap_file.suffixes:
-                graph = nx.read_edgelist(snap_file, nodetype=int)
-            elif ".csv" in snap_file.suffixes:
-                graph = nx.read_edgelist(
-                    snap_file, delimiter=",", nodetype=int, data=(("source", int), ("target", int))
-                )
-
-            num_nodes = graph.number_of_nodes()
-            sparsity = 1 - (graph.number_of_edges() / (num_nodes**2))
-            data.append(
-                {
-                    "index": snap_file.stem,
-                    "name": f"{num_nodes}_p_{sparsity:.2f}_{snap_file.stem}",
-                    "type": "snap",
-                    "graph": graph,
-                    "feature_matrix": sp.identity(num_nodes, format="csr", dtype=np.float32),
-                    "num_nodes": num_nodes,
-                    "sparsity": sparsity,
-                }
-            )
+    graphs = [
+        *parse_synthetic_pattern(args.synthetic),
+        *parse_matrices_pattern(args.ssmatrices),
+        *parse_snap_pattern(args.snap),
+    ]
 
     results = defaultdict(dict)
-    for item in data:
+    for graph_file in graphs:
+        item = load_graph(graph_file)
+
         item_idx = str(item["index"])
         print(f"Testing {item_idx}...")
 
         # Execute the method
         result = method.execute(item, num_warmup=args.warmup)
+        if result is None:
+            print(f"Execution failed for {item_idx}.")
+            continue
 
         # Verify the result
         is_correct = None

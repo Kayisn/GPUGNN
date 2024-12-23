@@ -177,14 +177,7 @@ def reorder_matrix_by_clusters(adjacency_matrix, feature_matrix, cluster_batch):
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
-
-    # Debug prints
-    print(f"Matrix sizes - Adjacency: {adjacency_matrix.shape}, Features: {feature_matrix.shape}")
-    print(f"Non-zero elements - Adjacency: {adjacency_matrix.nnz}, Features: {feature_matrix.nnz}")
+    adjacency_matrix = nx.to_scipy_sparse_array(graph_info["graph"], format="lil", dtype=np.float32)
 
     # Create hierarchical decomposition
     decomp = HierarchicalDecomposition(adjacency_matrix)
@@ -197,8 +190,8 @@ def execute(graph_info, num_warmup=1):
 
     # Reorder matrices based on clustering
     adj_reordered, feat_reordered, reverse_order = reorder_matrix_by_clusters(
-        adjacency_matrix, feature_matrix, cluster_batch
+        adjacency_matrix, sp.csr_matrix(graph_info["feature_matrix"]), cluster_batch
     )
 
     smm_decomposed = SparseMatrixMultiplyDecomposed()
-    return smm_decomposed.multiply(index, num_warmup, adj_reordered, feat_reordered)[reverse_order]
+    return smm_decomposed.multiply(graph_info["index"], num_warmup, adj_reordered, feat_reordered)[reverse_order]

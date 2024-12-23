@@ -67,8 +67,16 @@ class DenseMatrixMultiply:
 
 
 def execute(graph_info, num_warmup=1):
-    adjacency_matrix_dense = nx.to_numpy_array(graph_info["graph"], dtype=np.float32)
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"]).toarray()
-
     dmm = DenseMatrixMultiply()
-    return dmm.multiply(graph_info["index"], num_warmup, adjacency_matrix_dense, feature_matrix)
+
+    # Convert feature matrix to dense if it is sparse
+    feature_matrix = graph_info["feature_matrix"]
+    if hasattr(feature_matrix, "todense"):
+        feature_matrix = feature_matrix.todense()
+        
+    return dmm.multiply(
+        graph_info["index"],
+        num_warmup,
+        nx.to_numpy_array(graph_info["graph"], dtype=np.float32),
+        sp.csr_matrix(graph_info["feature_matrix"]).toarray(),
+    )

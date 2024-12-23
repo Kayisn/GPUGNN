@@ -1,7 +1,9 @@
-import os
 import json
-import scipy.io
+import os
 from pathlib import Path
+
+import scipy.io
+
 
 def load_metadata(filename):
     """
@@ -19,6 +21,7 @@ def load_metadata(filename):
 
     with open(filename, "r") as f:
         return {matrix["name"]: matrix for matrix in json.load(f)}
+
 
 def analyze_matrices(matrix_dir, metadata_file):
     """
@@ -57,8 +60,9 @@ def analyze_matrices(matrix_dir, metadata_file):
         except Exception as e:
             print(f"Error processing matrix {matrix_name}: {e}")
 
+
 if __name__ == "__main__":
-    matrix_dir = "../ssmatrices"  # Directory containing .mtx files
-    metadata_file = "../ssmatrices/ss_matrix_metadata.json"  # Metadata file
+    matrix_dir = Path("graphs") / "ssmatrices"  # Directory containing .mtx files
+    metadata_file = matrix_dir / "ss_matrix_metadata.json"  # Metadata file
 
     analyze_matrices(matrix_dir, metadata_file)

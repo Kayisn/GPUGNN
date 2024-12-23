@@ -1,4 +1,4 @@
-__global__ void matmul(
+extern "C" __global__ void matmul(
     const float *A_data, const int *A_indices, const int *A_indptr,
     const float *B_data, const int *B_indices, const int *B_indptr,
     float *C, int num_rows, int num_cols) {

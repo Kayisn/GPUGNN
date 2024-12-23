@@ -48,10 +48,16 @@ class DenseMatrixMultiplyPyTorch:
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
-    feature_matrix = np.array(graph_info["feature_matrix"], dtype=np.float32)
-    adjacency_matrix = nx.to_numpy_array(graph, dtype=np.float32)
-
     dmm = DenseMatrixMultiplyPyTorch()
-    return dmm.multiply(index, num_warmup, adjacency_matrix, feature_matrix)
+    
+    # Convert feature matrix to dense if it is sparse
+    feature_matrix = graph_info["feature_matrix"]
+    if hasattr(feature_matrix, "todense"):
+        feature_matrix = feature_matrix.todense()
+    
+    return dmm.multiply(
+        graph_info["index"],
+        num_warmup,
+        nx.to_numpy_array(graph_info["graph"], dtype=np.float32),
+        np.array(feature_matrix, dtype=np.float32),
+    )

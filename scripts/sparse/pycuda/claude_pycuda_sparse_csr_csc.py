@@ -95,10 +95,10 @@ class SparseMatrixMultiplyCSCCSR:
 
 
 def execute(graph_info, num_warmup=1):
-    index = graph_info["index"]
-    graph = graph_info["graph"]
-    feature_matrix = sp.csr_matrix(graph_info["feature_matrix"])
-    adjacency_matrix = nx.to_scipy_sparse_array(graph, format="lil", dtype=np.float32)
-
     smm_csr_csc = SparseMatrixMultiplyCSCCSR()
-    return smm_csr_csc.multiply(index, num_warmup, adjacency_matrix, feature_matrix)
+    return smm_csr_csc.multiply(
+        graph_info["index"],
+        num_warmup,
+        nx.to_scipy_sparse_array(graph_info["graph"], format="lil", dtype=np.float32),
+        sp.csr_matrix(graph_info["feature_matrix"]),
+    )

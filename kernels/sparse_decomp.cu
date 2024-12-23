@@ -10,16 +10,16 @@ __device__ inline int binary_search(const int* array, int left, int right, int t
     return -1;
 }
 
-__global__ void matmul(const float* __restrict__ A_data,
-                              const int* __restrict__ A_indices,
-                              const int* __restrict__ A_indptr,
-                              const float* __restrict__ B_data,
-                              const int* __restrict__ B_indices,
-                              const int* __restrict__ B_indptr,
-                              float* __restrict__ C,
-                              const int num_rows,
-                              const int num_cols,
-                              const int num_cols_B) {
+extern "C" __global__ void matmul(const float* __restrict__ A_data,
+                                  const int* __restrict__ A_indices,
+                                  const int* __restrict__ A_indptr,
+                                  const float* __restrict__ B_data,
+                                  const int* __restrict__ B_indices,
+                                  const int* __restrict__ B_indptr,
+                                  float* __restrict__ C,
+                                  const int num_rows,
+                                  const int num_cols,
+                                  const int num_cols_B) {
     __shared__ float shared_sum[32][32];
 
     const int row = blockIdx.y * 32 + threadIdx.y;

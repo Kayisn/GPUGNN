@@ -1,9 +1,9 @@
 import argparse
 import ctypes
 import json
-import re
 import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 from pathlib import Path
 
@@ -52,46 +52,46 @@ if args.profile:
     report_dir.mkdir(exist_ok=True)
 
 # Run each script sequentially
-graphs = " ".join(
-    f"--{name} {value}" for name, value in vars(args).items() if name in ["synthetic", "ssmatrices", "snap"] and value
-)
 for method in methods:
+    graphs = " ".join(
+        f"--{name} {value}"
+        for name, value in vars(args).items()
+        if name in ["synthetic", "ssmatrices", "snap"] and value
+    )
     cmd = f"python executer.py --method {method} --warmup {args.warmup} {graphs} {'--verify' if args.verify else ''}"
 
+    if args.profile:
+        nvtx_patterns = [f'"regex:{method.stem}@{nvtx}*/"' for nvtx in args.nvtx.split(",")]
+        nvtx_include = "--nvtx-include " + " --nvtx-include ".join(nvtx_patterns)
+        metrics = [
+            "gpu__time_duration_measured_wallclock",  # The wall-clock time duration.
+            "gpu__cycles_active",  # Number of cycles where the GPU is actively processing.
+            "gpu__cycles_elapsed",  # Total elapsed cycles, including idle periods. Helps in comparing against active cycles to detect inefficiencies.
+            "dram__bytes",  # Total bytes accessed in DRAM (global memory). Indicates how much memory bandwidth the program consumes.
+            "dram__bytes_read",  # Total bytes read from DRAM. Useful to identify memory access patterns.
+            "dram__bytes_write",  # Total bytes written to DRAM. Useful to identify memory access patterns.
+            "lts__t_bytes",  # Total bytes requested from L2 cache. Indicates data dependency and cache usage efficiency.
+            "lts__t_request_hit_rate",  # Hit rate for L2 cache requests. A low hit rate suggests suboptimal memory access patterns and potential need for memory locality optimization.
+            "l1tex__t_bytes",  # Total bytes requested from L1 texture cache. Indicates data dependency and cache usage efficiency.
+            "l1tex__t_bytes_lookup_hit",  # Tracks bytes that hit in L1 texture cache. A low hit rate signals inefficient data locality.
+            "l1tex__t_bytes_lookup_miss",  # Tracks bytes that missed in L1 texture cache. A high miss rate signals inefficient data locality.
+            "gr__ctas_launched",  # Number of Cooperative Thread Arrays (CTAs) launched. Reflects parallel workload distribution across the GPU.
+            "gpc__cycles_active",  # Tracks activity in the Graphics Processing Clusters. Helps analyze how effectively compute units are utilized.
+            "idc__request_hit_rate",  # Hit rate for intermediate data cache (IDC). Useful for understanding performance of inter-thread data sharing.
+        ]
+        cmd = f"ncu --nvtx --metrics {','.join(metrics)} {nvtx_include} -f -o {str(report_dir / f'report_{method.stem}')} {cmd}"
+
     try:
-        if args.profile:
-            print(f"Profiling {method.stem}...")
-            nvtx_patterns = [f'"regex:{method.stem}@{nvtx}*/"' for nvtx in args.nvtx.split(",")]
-            nvtx_include = "--nvtx-include " + " --nvtx-include ".join(nvtx_patterns)
-            metrics = [
-                "gpu__time_duration_measured_wallclock",  # The wall-clock time duration.
-                "gpu__cycles_active",  # Number of cycles where the GPU is actively processing.
-                "gpu__cycles_elapsed",  # Total elapsed cycles, including idle periods. Helps in comparing against active cycles to detect inefficiencies.
-                "dram__bytes",  # Total bytes accessed in DRAM (global memory). Indicates how much memory bandwidth the program consumes.
-                "dram__bytes_read",  # Total bytes read from DRAM. Useful to identify memory access patterns.
-                "dram__bytes_write",  # Total bytes written to DRAM. Useful to identify memory access patterns.
-                "lts__t_bytes",  # Total bytes requested from L2 cache. Indicates data dependency and cache usage efficiency.
-                "lts__t_request_hit_rate",  # Hit rate for L2 cache requests. A low hit rate suggests suboptimal memory access patterns and potential need for memory locality optimization.
-                "l1tex__t_bytes",  # Total bytes requested from L1 texture cache. Indicates data dependency and cache usage efficiency.
-                "l1tex__t_bytes_lookup_hit",  # Tracks bytes that hit in L1 texture cache. A low hit rate signals inefficient data locality.
-                "l1tex__t_bytes_lookup_miss",  # Tracks bytes that missed in L1 texture cache. A high miss rate signals inefficient data locality.
-                "gr__ctas_launched",  # Number of Cooperative Thread Arrays (CTAs) launched. Reflects parallel workload distribution across the GPU.
-                "gpc__cycles_active",  # Tracks activity in the Graphics Processing Clusters. Helps analyze how effectively compute units are utilized.
-                "idc__request_hit_rate",  # Hit rate for intermediate data cache (IDC). Useful for understanding performance of inter-thread data sharing.
-            ]
-            subprocess.check_call(
-                f"ncu --nvtx --metrics {','.join(metrics)} {nvtx_include} -f -o {str(report_dir / f'report_{method.stem}')} {cmd}",
-                stderr=subprocess.STDOUT,
-                shell=True,
-            )
-            print(f"Completed profiling {method.stem}.")
-        else:
-            print(f"Running {method.stem}...")
-            subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-            print(f"Completed running {method.stem}.\n")
+        # Avoid `The command line is too long` error on Windows
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".bat") as temp_batch_file:
+            temp_batch_file.write(cmd.encode())
+            temp_file_path = temp_batch_file.name
+        print(f"Processing {method.stem}...")
+        subprocess.check_call(temp_file_path, stderr=subprocess.STDOUT, shell=True)
+        print(f"Completed {method.stem}.\n")
     except subprocess.CalledProcessError as e:
         print(f"Error running {method.stem}. Exit code: {e.returncode}")
-        exit(1)
+        continue
 
     if args.profile and (report_dir / f"report_{method.stem}.ncu-rep").exists():
         """
@@ -186,16 +186,13 @@ for method in methods:
         for rng_id in range(report.num_ranges()):
             rng = report.range_by_idx(rng_id)
             for action_id in range(rng.num_actions()):
-                print(f"Processing action {action_id}...")
                 action = rng.action_by_idx(action_id)
                 nvtx_state = action.nvtx_state()
                 for domain_id in nvtx_state.domains():
-                    print(f"Processing domain {domain_id}...")
                     domain = nvtx_state.domain_by_id(domain_id)
                     if domain.name() in method_names:
                         method = domain.name()
                         for nvtx_section in domain.push_pop_ranges():
-                            print(f"Processing NVTX range {nvtx_section}...")
                             nvtx_range, graph_idx = nvtx_section.split()
                             for metric in all_metrics.keys():
                                 if metric_data := action.metric_by_name(metric):

@@ -116,10 +116,10 @@ if __name__ == "__main__":
 
     # Parameters for graph generation
     num_graphs = 1
-    num_nodes_list = [1000, 2000, 3000]
-    sparsity_levels = [0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 0.9]
+    num_nodes_list = [1000, 5000, 10000, 20000]
+    sparsity_levels = [0.001, 0.01, 0.5]
     number_of_features = 10
-    g_type = "both"
+    g_type = "scale-free"
     output_directory = Path("graphs") / "synthetic"
 
     # Generate all graphs

@@ -1,7 +1,7 @@
 #define TILE_SIZE 32
 #define BLOCK_SIZE 32
 
-__global__ void matmul(
+extern "C" __global__ void matmul(
     const float *A_data, const int *A_indices, const int *A_indptr,  // A in CSR
     const float *B_data, const int *B_indices, const int *B_indptr,  // B in CSC
     float *C, int num_rows_A, int num_cols_A, int num_cols_B) {
